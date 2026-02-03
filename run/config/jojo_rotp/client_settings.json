@@ -1,0 +1,28 @@
+{
+  "standStatsTranslucency": 0.75,
+  "standStatsInvertBnW": false,
+  "viewModeGE": "GRID",
+  "barsPosition": "TOP_LEFT",
+  "hotbarsPosition": "TOP_LEFT",
+  "hudTextRender": "FADE_OUT",
+  "hudHotbarFold": true,
+  "showLockedSlots": false,
+  "resolveShaders": true,
+  "timeStopAnimation": true,
+  "standMotionTilt": true,
+  "poseOnLmbRmb": true,
+  "autoResolveActivation": true,
+  "standOutline": true,
+  "menacingParticles": true,
+  "characterVoiceLines": true,
+  "toggleLmbHotbar": false,
+  "toggleRmbHotbar": false,
+  "toggleDisableHotbars": false,
+  "thirdPersonHamonAura": true,
+  "firstPersonHamonAura": true,
+  "hamonAuraBlur": false,
+  "broadcasted": {
+    "standSide": "RIGHT",
+    "vampireGlowingEyes": true
+  }
+}

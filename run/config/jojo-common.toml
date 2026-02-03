@@ -1,0 +1,123 @@
+#    Whether or not blocks which can be restored by Crazy Diamond's terrain restoration ability are saved in the save files.
+#     It may cause longer saving & loading time for larger worlds.
+saveDestroyedBlocks = false
+#    Disable this to make endermen also be frozen in stopped time.
+#      But what if there is an in-mod lore reason for this...
+endermenBeyondTimeSpace = true
+#    Whether or not a turtle mob that can get Mr.President Stand spawns naturally.
+spawnCocoJumboTurtle = true
+
+["Keep Powers After Death"]
+	keepStandOnDeath = true
+	keepHamonOnDeath = true
+	#    The weak vampirism version from the 'Blood Gift' ability will not be kept.
+	keepVampirismOnDeath = true
+	#    If enabled, Stand users drop their Stand's Disc upon death.
+	#    Works only when keepStandOnDeath is set to false.
+	dropStandDisc = false
+
+["Structures Spawn"]
+	meteoriteSpawn = true
+	pillarManTempleSpawn = true
+	hamonTempleSpawn = true
+
+["Hamon Settings"]
+	#    Damage multiplier applied to all Hamon attacks.
+	#Range: 0.0 ~ 128.0
+	hamonDamageMultiplier = 1.0
+	#    Whether or not Hamon energy ticks down a few seconds after the user performs Hamon Breath.
+	hamonEnergyTicksDown = true
+
+	# Settings which affect the speed of Hamon training.
+	["Hamon Settings"."Hamon training"]
+		#    If enabled, this number will be the maximum difference between Hamon Strength/Control and Breathing training.
+		#     If the Breathing training level is too low, the player won't be able to reach higher levels of the Hamon stats.
+		#     By default this mechanic is disabled (the value is set to -1).
+		#Range: -1 ~ 100
+		breathingHamonStatGap = -1
+		#    Whether or not breathing training deteriorates over time.
+		breathingTrainingDeterioration = true
+		#    Breathing training growth multiplier.
+		#Range: 0.0 ~ 100.0
+		breathingTrainingMultiplier = 1.0
+		#    Hamon Strength and Control levels growth multiplier.
+		#Range: 0.0 ~ 5000.0
+		hamonPointsMultiplier = 1.0
+		#    At what levels of Hamon Strength and Hamon Control each slot for a skill from the Technique tab is unlocked, and how many slots are there.
+		#     Could be used to increase the default limit of 3 slots when paired with mixHamonTechniques setting enabled.
+		techniqueSkillRequirements = [20, 30, 40]
+		#    Whether or not picking skills from different character-specific Hamon techniques is allowed.
+		mixHamonTechniques = false
+
+["Vampirism settings"]
+	#    Whether or not undead mobs take damage under the sun similarly to vampires.
+	undeadMobsSunDamage = false
+	#    Max vampire energy multiplier on each difficulty level (from Peaceful to Hard).
+	maxBloodMultiplier = [1.0, 1.0, 1.0, 1.0]
+	#    Vampire energy decrease per tick on each difficulty level.
+	bloodTickDown = [0.13889, 0.00278, 0.00278, 0.0]
+	#    Vampire energy cost per 1 hp of healing on each difficulty level.
+	bloodHealCost = [10.0, 4.0, 2.0, 1.0]
+	#    Whether or not hostile mobs are agressive towards vampire players.
+	vampiresAggroMobs = false
+	#    Duration of the vampirism curing process in ticks.
+	#Range: > 1
+	vampirismCuringDuration = 48000
+	#    Blood drain multiplier on each difficulty level.
+	bloodDrainMultiplier = [0.0, 1.0, 1.75, 2.5]
+
+# Settings of Stand-giving Arrows and the commands giving Stands at random.
+[Arrow]
+	#    Durability of the Arrows crafted from meteoric ingots.
+	#Range: > 1
+	arrowDurability = 25
+	#    The increase of the cost for getting a Stand for each previous one the player has got before.
+	#Range: 0 ~ 9999
+	standXpCostIncrease = 5
+	#    Special rule limiting the pool of Stands randomly chosen from on multiplayer servers.
+	#     NONE -        can randomly give any of the available Stands
+	#     LEAST_TAKEN - can only choose from the Stands less players on the server have
+	#     NOT_TAKEN -   can only give a Stand no other player on the server has gotten
+	#Allowed Values: NONE, LEAST_TAKEN, NOT_TAKEN
+	standArrowMode = "NONE"
+	#    List of Stands excluded from the pool used by Arrows, "/stand random" and "/standdisc random".
+	#     These stands will still be available via commands such as "/stand give", but won't be suggested for autocompletion.
+	#     Their Discs won't be added to the mod's Creative tab, but they can still be found in the Search tab (although they can't be used to gain a banned Stand)."
+	#     The format is the same as for "/stand give" command (e.g., "jojo:star_platinum").
+	bannedStands = ["jojo:example_1", "jojo:example_2"]
+	#    Durability of the Beetle Arrows found in the desert temples.
+	#Range: > 1
+	arrowDurabilityBeetle = 250
+	#    The initial cost of getting a Stand from a Stand Arrow (in experience levels).
+	#Range: 0 ~ 9999
+	standXpCostInitial = 30
+
+["Stand settings"]
+	#    Damage multiplier applied to all Stands.
+	#Range: 0.0 ~ 128.0
+	standPowerMultiplier = 1.0
+	#    Whether or not Stand stamina mechanic is enabled.
+	standStamina = true
+	#    Damage resistance applied to all Stands.
+	#Range: 1.0 ~ 128.0
+	standResistanceMultiplier = 1.0
+	soulAscension = true
+
+	["Stand settings"."Stand Progression"]
+		#    Max resolve points at each Resolve level (starting from 0).
+		#     Decrease these values to make getting to each level easier.
+		#     All values must be higher than 0.
+		resolveLvlPoints = [2500.0, 10000.0, 25000.0, 50000.0, 32500.0]
+		#    Whether or not all of the abilities are unlocked after gaining a Stand in Survival.
+		skipStandProgression = false
+
+	["Stand settings"."Time Stop"]
+		#    Damage multiplier for entities frozen in time.
+		#Range: 0.0 ~ 1.0
+		timeStopDamageMultiplier = 1.0
+		#    Range of Time Stop ability in chunks.
+		#     If set to 0, the whole dimension is frozen in time.
+		#     Defaults to 12.
+		#Range: > 0
+		timeStopChunkRange = 12
+

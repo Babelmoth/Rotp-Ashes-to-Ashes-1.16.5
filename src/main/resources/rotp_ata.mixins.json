@@ -1,0 +1,13 @@
+{
+    "required": true,
+    "minVersion": "0.8",
+    "package": "com.babelmoth.rotp_ata.mixin",
+    "compatibilityLevel": "JAVA_8",
+    "refmap": "rotp_ata.refmap.json",
+    "mixins": [
+        "PressurePlateBlockMixin"
+    ],
+    "injectors": {
+        "defaultRequire": 1
+    }
+}
