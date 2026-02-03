@@ -344,7 +344,6 @@ public class AshesToAshesStandEntity extends StandEntity {
 
     @Override
     protected double leapBaseStrength() {
-        // Great Jump is now handled by Active Consumption in AshesToAshesEventHandler.onLivingJump
         return super.leapBaseStrength();
     }
 

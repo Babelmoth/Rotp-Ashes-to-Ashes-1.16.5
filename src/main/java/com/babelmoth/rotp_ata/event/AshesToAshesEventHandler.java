@@ -56,55 +56,6 @@ public class AshesToAshesEventHandler {
         }
     }
 
-    @SubscribeEvent
-    public static void onLivingJump(net.minecraftforge.event.entity.living.LivingEvent.LivingJumpEvent event) {
-        LivingEntity entity = event.getEntityLiving();
-        if (entity.level.isClientSide) return;
-        
-        if (entity instanceof PlayerEntity) {
-            IStandPower.getStandPowerOptional((PlayerEntity)entity).ifPresent(power -> {
-                if (power.isActive() && power.getType() == com.babelmoth.rotp_ata.init.InitStands.STAND_ASHES_TO_ASHES.getStandType()) {
-                    // Great Jump: Consume 1 Moth + 50 Kinetic Energy
-                    entity.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                        // Check availability first: 1 moth and 5 kinetic energy
-                        if (pool.getTotalMoths() >= 1 && pool.getTotalKineticEnergy() >= 5) {
-                            // Deduct and Boost
-                            if (pool.consumeMoths(1)) {
-                                pool.consumeKinetic(5);
-                                if (entity instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                                    pool.sync((net.minecraft.entity.player.ServerPlayerEntity)entity);
-                                }
-                                
-                                // Apply Vertical Boost (Directional if moving?)
-                                // "Directional Dash" requested? "移除自我依附，改为直接垂直/方向冲刺"
-                                net.minecraft.util.math.vector.Vector3d motion = entity.getDeltaMovement();
-                                double boostY = 0.6;
-                                double boostH = 0.0;
-                                
-                                // Increase horizontal speed if sprinting
-                                if (entity.isSprinting()) {
-                                    boostH = 0.5;
-                                    boostY = 0.4; // Less height, more forward
-                                    
-                                    net.minecraft.util.math.vector.Vector3d look = entity.getLookAngle();
-                                    motion = motion.add(look.x * boostH, boostY, look.z * boostH);
-                                } else {
-                                    motion = motion.add(0, boostY, 0);
-                                }
-                                
-                                entity.setDeltaMovement(motion);
-                                entity.hasImpulse = true;
-                                
-                                // Play Sound
-                                entity.level.playSound(null, entity.getX(), entity.getY(), entity.getZ(), 
-                                    net.minecraft.util.SoundEvents.GENERIC_EXPLODE, net.minecraft.util.SoundCategory.PLAYERS, 0.5f, 2.0f);
-                            }
-                        }
-                    });
-                }
-            });
-        }
-    }
 
     @SubscribeEvent
     public static void onLivingUpdate(LivingUpdateEvent event) {
