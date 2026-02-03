@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.mehvahdjukaar:selene:1.16.5-1.9.0_mapped_official_1.16.5" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="com.mehvahdjukaar" artifactId="selene" version="1.16.5-1.9.0_mapped_official_1.16.5" baseVersion="1.16.5-1.9.0_mapped_official_1.16.5" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/forge_gradle/deobf_dependencies/com/mehvahdjukaar/selene/1.16.5-1.9.0_mapped_official_1.16.5/selene-1.16.5-1.9.0_mapped_official_1.16.5.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
