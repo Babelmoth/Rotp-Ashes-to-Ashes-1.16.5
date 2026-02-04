@@ -25,27 +25,38 @@ public class AshesToAshesSwarmGuardian extends StandAction {
     }
 
     @Override
+    public void onClick(World world, LivingEntity user, IStandPower power) {
+        if (!world.isClientSide) {
+            // Force summon stand if not active
+            if (!power.isActive() && power.getType() instanceof com.github.standobyte.jojo.power.impl.stand.type.EntityStandType) {
+                ((com.github.standobyte.jojo.power.impl.stand.type.EntityStandType<?>) power.getType())
+                    .summon(user, power, entity -> {}, true, false);
+            }
+        }
+        super.onClick(world, user, power);
+    }
+    
+    @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            if (!power.isActive()) {
-                int activeCount = MothQueryUtil.getOwnerMoths(user, 128.0).size();
-                if (activeCount < 10) {
-                   user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                        int toSpawn = 10 - activeCount;
-                        for (int i = 0; i < toSpawn; i++) {
-                            int slot = pool.allocateSlotWithPriority(true);
-                            if (slot != -1) {
-                                FossilMothEntity moth = new FossilMothEntity(world, user);
-                                moth.setMothPoolIndex(slot);
-                                moth.setPos(user.getX(), user.getY() + 1, user.getZ());
-                                world.addFreshEntity(moth);
-                            }
+            // Ensure at least 10 moths exist
+            int activeCount = MothQueryUtil.getOwnerMoths(user, 128.0).size();
+            if (activeCount < 10) {
+               user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+                    int toSpawn = 10 - activeCount;
+                    for (int i = 0; i < toSpawn; i++) {
+                        int slot = pool.allocateSlotWithPriority(true);
+                        if (slot != -1) {
+                            FossilMothEntity moth = new FossilMothEntity(world, user);
+                            moth.setMothPoolIndex(slot);
+                            moth.setPos(user.getX(), user.getY() + 1, user.getZ());
+                            world.addFreshEntity(moth);
                         }
-                        if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                            pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
-                        }
-                    });
-                }
+                    }
+                    if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
+                        pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
+                    }
+                });
             }
             
             net.minecraft.util.math.vector.Vector3d start = user.getEyePosition(1.0F);
@@ -65,26 +76,37 @@ public class AshesToAshesSwarmGuardian extends StandAction {
                 persistentTarget = result.getEntity();
             }
             
-            List<FossilMothEntity> activeMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+            // Get all owner moths, but prioritize non-guardian moths for other tasks
+            List<FossilMothEntity> allMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
             
-            for (FossilMothEntity moth : activeMoths) {
-                 if (persistentTarget != null) {
-                    // Set new persistent target
+            // Separate guardian moths (first 10, or those already in guardian mode)
+            List<FossilMothEntity> guardianMoths = new java.util.ArrayList<>();
+            List<FossilMothEntity> otherMoths = new java.util.ArrayList<>();
+            
+            for (FossilMothEntity moth : allMoths) {
+                if (moth.isShieldPersistent() || guardianMoths.size() < 10) {
+                    guardianMoths.add(moth);
+                } else {
+                    otherMoths.add(moth);
+                }
+            }
+            
+            // Ensure exactly 10 guardian moths
+            while (guardianMoths.size() < 10 && !otherMoths.isEmpty()) {
+                guardianMoths.add(otherMoths.remove(0));
+            }
+            
+            // Set guardian moths to shield target
+            for (FossilMothEntity moth : guardianMoths) {
+                if (persistentTarget != null) {
                     moth.setShieldTarget(persistentTarget, true);
                     moth.refreshShield();
-                    moth.detach(); 
-                 } else {
-                    // If used without target, clear persistent shield target?
-                    // User logic implies: shift use -> assign target. 
-                    // To clear, maybe target is null?
-                    // Let's assume if they aim at nothing they probably want to recall from guardian mode?
-                    // Or keep as is.
-                    // Let's implement toggle logic: if user aims at nothing, cancel all guardian shields.
+                    moth.detach();
+                } else {
                     if (moth.isShieldPersistent()) {
                         moth.setShieldTarget(null);
-                        // Recall is handled by moth AI when shield target is lost
                     }
-                 }
+                }
             }
         }
     }

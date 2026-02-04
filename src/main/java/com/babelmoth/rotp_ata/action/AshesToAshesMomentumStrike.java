@@ -84,6 +84,18 @@ public class AshesToAshesMomentumStrike extends StandAction implements com.githu
     // ... onClick ...
 
     @Override
+    public void onClick(World world, LivingEntity user, IStandPower power) {
+        if (!world.isClientSide()) {
+            // Force summon stand if not active
+            if (!power.isActive() && power.getType() instanceof com.github.standobyte.jojo.power.impl.stand.type.EntityStandType) {
+                ((com.github.standobyte.jojo.power.impl.stand.type.EntityStandType<?>) power.getType())
+                    .summon(user, power, entity -> {}, true, false);
+            }
+        }
+        super.onClick(world, user, power);
+    }
+    
+    @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide()) {
             // Store the original target for use in the Instance

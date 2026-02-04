@@ -50,11 +50,23 @@ public class AshesToAshesFrozenBarrier extends StandAction {
             return; // Can't place if not air
         }
 
+        // Get 3 free moths for the barrier
+        java.util.List<com.babelmoth.rotp_ata.entity.FossilMothEntity> freeMoths = 
+            com.babelmoth.rotp_ata.util.MothQueryUtil.getFreeMoths(user, 64.0);
+        
+        if (freeMoths.size() < 3) {
+            return; // Not enough moths
+        }
+
         // Check and remove oldest if over limit
         LinkedList<BlockPos> barriers = PLAYER_BARRIERS.computeIfAbsent(player.getUUID(), k -> new LinkedList<>());
         while (barriers.size() >= MAX_BARRIERS) {
             BlockPos oldest = barriers.removeFirst();
             if (world.getBlockState(oldest).getBlock() == InitBlocks.FROZEN_BARRIER.get()) {
+                TileEntity oldTe = world.getBlockEntity(oldest);
+                if (oldTe instanceof FrozenBarrierBlockEntity) {
+                    ((FrozenBarrierBlockEntity) oldTe).releaseMoths();
+                }
                 world.removeBlock(oldest, false);
             }
         }
@@ -63,10 +75,20 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         BlockState barrierState = InitBlocks.FROZEN_BARRIER.get().defaultBlockState();
         world.setBlock(placePos, barrierState, 3);
 
-        // Set owner
+        // Set owner and attach moths
         TileEntity te = world.getBlockEntity(placePos);
         if (te instanceof FrozenBarrierBlockEntity) {
-            ((FrozenBarrierBlockEntity) te).setOwner(player);
+            FrozenBarrierBlockEntity barrier = (FrozenBarrierBlockEntity) te;
+            barrier.setOwner(player);
+            
+            // Attach 3 moths to the barrier
+            java.util.List<Integer> mothIds = new java.util.ArrayList<>();
+            for (int i = 0; i < 3 && i < freeMoths.size(); i++) {
+                com.babelmoth.rotp_ata.entity.FossilMothEntity moth = freeMoths.get(i);
+                moth.attachTo(placePos, net.minecraft.util.Direction.UP);
+                mothIds.add(moth.getId());
+            }
+            barrier.setMothIds(mothIds);
         }
 
         barriers.add(placePos);

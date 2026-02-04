@@ -198,8 +198,16 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         int toSpawn = targetCount - existingCount;
         if (toSpawn <= 0) return;
         
+        // Apply kinetic sensing state to new moths if enabled
+        boolean sensingEnabled = com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(user);
+        
         for (int i = 0; i < toSpawn; i++) {
             FossilMothEntity moth = new FossilMothEntity(level, user);
+            
+            // Apply kinetic sensing state if enabled
+            if (sensingEnabled) {
+                moth.setKineticSensingEnabled(true);
+            }
             
             // 在用户周围生成
             double offsetX = (level.random.nextDouble() - 0.5) * 1.5;
@@ -805,6 +813,17 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         }
 
         super.tick();
+        
+        // Apply kinetic sensing state from owner if enabled (for newly spawned moths)
+        if (!level.isClientSide) {
+            LivingEntity owner = getOwner();
+            if (owner != null) {
+                boolean shouldBeEnabled = com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(owner);
+                if (shouldBeEnabled != isKineticSensingEnabled()) {
+                    setKineticSensingEnabled(shouldBeEnabled);
+                }
+            }
+        }
         
         // Kinetic Sensing passive effect
         tickKineticSensing();

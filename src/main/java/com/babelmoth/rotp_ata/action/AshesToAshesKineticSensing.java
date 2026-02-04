@@ -17,8 +17,8 @@ import java.util.List;
 
 public class AshesToAshesKineticSensing extends StandAction {
 
-    // Store sensing state per-user (for UI, not actual moth state)
-    private static boolean sensingEnabled = false;
+    // Store sensing state per-user UUID
+    private static final java.util.Map<java.util.UUID, Boolean> sensingStateMap = new java.util.HashMap<>();
     
     // Lazy texture for "on" state
     private final LazySupplier<ResourceLocation> onTexture = 
@@ -32,31 +32,37 @@ public class AshesToAshesKineticSensing extends StandAction {
     
     @Override
     public ResourceLocation getIconTexturePath(@Nullable IStandPower power) {
-        return sensingEnabled ? onTexture.get() : offTexture.get();
+        if (power == null || power.getUser() == null) return offTexture.get();
+        boolean enabled = sensingStateMap.getOrDefault(power.getUser().getUUID(), false);
+        return enabled ? onTexture.get() : offTexture.get();
     }
     
     @Override
     public boolean greenSelection(IStandPower power, ActionConditionResult conditionCheck) {
-        return sensingEnabled;
+        if (power == null || power.getUser() == null) return false;
+        return sensingStateMap.getOrDefault(power.getUser().getUUID(), false);
     }
     
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // Toggle state
-            sensingEnabled = !sensingEnabled;
+            // Toggle state for this user
+            java.util.UUID userId = user.getUUID();
+            boolean newState = !sensingStateMap.getOrDefault(userId, false);
+            sensingStateMap.put(userId, newState);
             
-            // Apply to all owned moths efficiently (only nearby ones)
+            // Apply to all owned moths (existing and future)
             for (FossilMothEntity moth : world.getEntitiesOfClass(FossilMothEntity.class, 
-                    user.getBoundingBox().inflate(128), 
+                    user.getBoundingBox().inflate(256), 
                     m -> m.getOwner() == user && m.isAlive())) {
-                moth.setKineticSensingEnabled(sensingEnabled);
+                moth.setKineticSensingEnabled(newState);
             }
         }
     }
     
-    public static boolean isSensingEnabled() {
-        return sensingEnabled;
+    public static boolean isSensingEnabled(LivingEntity user) {
+        if (user == null) return false;
+        return sensingStateMap.getOrDefault(user.getUUID(), false);
     }
 }
 

@@ -24,6 +24,20 @@ public class AshesToAshesSwarmRecall extends StandAction {
                 FossilMothEntity.class, user, 256, false, 
                 moth -> moth.isAlive() && moth.getOwner() == user && (moth.isAttached() || moth.isAttachedToEntity()));
             
+            // Also recall moths from frozen barriers
+            java.util.Set<Integer> barrierMothIds = new java.util.HashSet<>();
+            for (net.minecraft.tileentity.TileEntity te : world.blockEntityList) {
+                if (te instanceof com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity) {
+                    com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity barrier = 
+                        (com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity) te;
+                    if (user.getUUID().equals(barrier.getOwnerUUID())) {
+                        barrierMothIds.addAll(barrier.getMothIds());
+                        // Release all moths from barrier
+                        barrier.releaseMoths();
+                    }
+                }
+            }
+            
             for (FossilMothEntity moth : activeMoths) {
                 moth.recall();
             }

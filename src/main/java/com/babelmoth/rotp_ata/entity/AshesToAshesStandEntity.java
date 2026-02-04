@@ -142,6 +142,10 @@ public class AshesToAshesStandEntity extends StandEntity {
                     if (slot != -1 && level != null) {
                         FossilMothEntity moth = new FossilMothEntity(level, user);
                         moth.setMothPoolIndex(slot);
+                        // Apply kinetic sensing state if enabled
+                        if (com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(user)) {
+                            moth.setKineticSensingEnabled(true);
+                        }
                         moth.setPos(this.getX(), this.getY() + 1.0, this.getZ());
                         level.addFreshEntity(moth);
                     }

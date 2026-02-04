@@ -40,6 +40,8 @@ public class AshesToAshesRemoveBarrier extends StandAction {
         if (te instanceof FrozenBarrierBlockEntity) {
             FrozenBarrierBlockEntity barrier = (FrozenBarrierBlockEntity) te;
             if (user.getUUID().equals(barrier.getOwnerUUID())) {
+                // Release moths before removing barrier
+                barrier.releaseMoths();
                 world.removeBlock(targetPos, false);
                 AshesToAshesFrozenBarrier.onBarrierRemoved(user.getUUID(), targetPos);
             }
