@@ -14,11 +14,14 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AshesToAshesKineticSensing extends StandAction {
 
-    // Store sensing state per-user UUID
-    private static final java.util.Map<java.util.UUID, Boolean> sensingStateMap = new java.util.HashMap<>();
+    // Store sensing state per-user by UUID
+    private static final Map<UUID, Boolean> sensingStateMap = new ConcurrentHashMap<>();
     
     // Lazy texture for "on" state
     private final LazySupplier<ResourceLocation> onTexture = 
@@ -32,26 +35,29 @@ public class AshesToAshesKineticSensing extends StandAction {
     
     @Override
     public ResourceLocation getIconTexturePath(@Nullable IStandPower power) {
-        if (power == null || power.getUser() == null) return offTexture.get();
-        boolean enabled = sensingStateMap.getOrDefault(power.getUser().getUUID(), false);
-        return enabled ? onTexture.get() : offTexture.get();
+        if (power != null && power.getUser() != null) {
+            return isSensingEnabled(power.getUser()) ? onTexture.get() : offTexture.get();
+        }
+        return offTexture.get();
     }
     
     @Override
     public boolean greenSelection(IStandPower power, ActionConditionResult conditionCheck) {
-        if (power == null || power.getUser() == null) return false;
-        return sensingStateMap.getOrDefault(power.getUser().getUUID(), false);
+        if (power != null && power.getUser() != null) {
+            return isSensingEnabled(power.getUser());
+        }
+        return false;
     }
     
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // Toggle state for this user
-            java.util.UUID userId = user.getUUID();
+            UUID userId = user.getUUID();
+            // Toggle state for this specific user
             boolean newState = !sensingStateMap.getOrDefault(userId, false);
             sensingStateMap.put(userId, newState);
             
-            // Apply to all owned moths (existing and future)
+            // Apply to all owned moths in range
             for (FossilMothEntity moth : world.getEntitiesOfClass(FossilMothEntity.class, 
                     user.getBoundingBox().inflate(256), 
                     m -> m.getOwner() == user && m.isAlive())) {
@@ -60,9 +66,20 @@ public class AshesToAshesKineticSensing extends StandAction {
         }
     }
     
+    /**
+     * Check if kinetic sensing is enabled for a specific user.
+     * Used by FossilMothEntity to sync state for newly spawned moths.
+     */
     public static boolean isSensingEnabled(LivingEntity user) {
         if (user == null) return false;
         return sensingStateMap.getOrDefault(user.getUUID(), false);
+    }
+    
+    /**
+     * Clear sensing state for a user (e.g., when they log out).
+     */
+    public static void clearSensingState(UUID userId) {
+        sensingStateMap.remove(userId);
     }
 }
 

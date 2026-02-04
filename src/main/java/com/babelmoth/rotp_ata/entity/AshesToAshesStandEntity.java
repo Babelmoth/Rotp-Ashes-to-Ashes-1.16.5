@@ -7,6 +7,7 @@ import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 import com.github.standobyte.jojo.init.ModStatusEffects;
 import net.minecraft.potion.EffectInstance;
 import net.minecraft.util.DamageSource;
+import java.util.Comparator;
 import java.util.List;
 
 import net.minecraft.entity.Entity;
@@ -105,6 +106,8 @@ public class AshesToAshesStandEntity extends StandEntity {
             if (replenishTimer >= 20) {
                 replenishTimer = 0;
                 replenishMoths();
+                // 身边超过 DEFAULT_MOTH_COUNT 只的飞蛾自动收回（优先收回距离最远的）
+                recallExcessMoths();
             }
 
             if (poolDataChanged || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0) {
@@ -117,6 +120,20 @@ public class AshesToAshesStandEntity extends StandEntity {
             }
             
             tickShieldLogic();
+        }
+    }
+
+    /** 身边空闲飞蛾超过上限时，优先收回距离最远的；屏障不参与此判定 */
+    private void recallExcessMoths() {
+        LivingEntity user = getUser();
+        if (user == null) return;
+        List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
+        if (freeMoths.size() <= AshesToAshesConstants.DEFAULT_MOTH_COUNT) return;
+        int toRecall = freeMoths.size() - AshesToAshesConstants.DEFAULT_MOTH_COUNT;
+        freeMoths.sort(Comparator.comparingDouble(m -> m.distanceToSqr(user)));
+        for (int i = freeMoths.size() - 1; i >= freeMoths.size() - toRecall; i--) {
+            FossilMothEntity moth = freeMoths.get(i);
+            if (moth.isAlive()) moth.recall();
         }
     }
 
@@ -142,10 +159,6 @@ public class AshesToAshesStandEntity extends StandEntity {
                     if (slot != -1 && level != null) {
                         FossilMothEntity moth = new FossilMothEntity(level, user);
                         moth.setMothPoolIndex(slot);
-                        // Apply kinetic sensing state if enabled
-                        if (com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(user)) {
-                            moth.setKineticSensingEnabled(true);
-                        }
                         moth.setPos(this.getX(), this.getY() + 1.0, this.getZ());
                         level.addFreshEntity(moth);
                     }
@@ -167,18 +180,24 @@ public class AshesToAshesStandEntity extends StandEntity {
     private int shieldConsumptionTimer = 0;
     
     public void toggleShield() {
-       this.isShieldActive = !this.isShieldActive;
-       // Feedback message?
+        this.isShieldActive = !this.isShieldActive;
     }
-    
+
+    public void setShieldActive(boolean active) {
+        this.isShieldActive = active;
+    }
+
     public boolean isShieldActive() {
         return this.isShieldActive;
     }
-    
+
     private void tickShieldLogic() {
-        if (!isShieldActive) return;
-        
         LivingEntity user = getUser();
+        if (user != null && !com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.isShieldEnabled(user)) {
+            isShieldActive = false;
+            return;
+        }
+        if (!isShieldActive) return;
         if (user == null) {
             isShieldActive = false;
             return;
@@ -203,10 +222,13 @@ public class AshesToAshesStandEntity extends StandEntity {
         if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity)user).isCreative()) {
              com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity)user).ifPresent(power -> {
                  power.consumeStamina(0.5F); // Moderate active drain per tick
-                 if (power.getStamina() <= 0) toggleShield();
+                 if (power.getStamina() <= 0) {
+                     com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
+                     isShieldActive = false;
+                 }
              });
         }
-        
+
         // 3. Periodic Moth Consumption (Fuel)
         // Every 5 seconds (100 ticks)
         shieldConsumptionTimer++;
@@ -214,8 +236,8 @@ public class AshesToAshesStandEntity extends StandEntity {
             shieldConsumptionTimer = 0;
             // Consume 1 moth from pool (Reserve preferred)
             if (!consumeMoths(1)) {
-                // Fail
-                toggleShield(); // Turn off if run out of fuel
+                com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
+                isShieldActive = false;
             } else {
                 poolDataChanged = true;
             }
@@ -229,15 +251,13 @@ public class AshesToAshesStandEntity extends StandEntity {
     public void onRemovedFromWorld() {
         super.onRemovedFromWorld();
         
-        // 替身收回时(Unsummoned), 必须移除所有化石蛾
-        // 否则它们会变成幽灵实体留存在世界上
         if (!level.isClientSide) {
             LivingEntity user = getUser();
             if (user != null) {
-            List<FossilMothEntity> activeMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
-                
+                com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
+                List<FossilMothEntity> activeMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
                 for (FossilMothEntity moth : activeMoths) {
-                    moth.recall(); // Saves data and removes entity
+                    moth.recall();
                 }
             }
         }
@@ -279,16 +299,16 @@ public class AshesToAshesStandEntity extends StandEntity {
         
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {
             int totalHamon = pool.getTotalHamonEnergy();
-            int totalKinetic = pool.getTotalKineticEnergy();
+            int availableKinetic = pool.getAvailableKinetic();
             
-            if (totalHamon + totalKinetic < amount) {
+            if (totalHamon + availableKinetic < amount) {
                 return new EnergyConsumeResult(0, 0, false);
             }
             
             // Prioritize Hamon
             int hamonToUse = Math.min(totalHamon, amount);
             int remaining = amount - hamonToUse;
-            int kineticToUse = Math.min(totalKinetic, remaining);
+            int kineticToUse = Math.min(availableKinetic, remaining);
             
             if (hamonToUse > 0) pool.consumeHamon(hamonToUse);
             if (kineticToUse > 0) pool.consumeKinetic(kineticToUse);
@@ -340,7 +360,7 @@ public class AshesToAshesStandEntity extends StandEntity {
         if (user == null) return false;
         
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {
-            if (pool.getTotalKineticEnergy() < amount) return false;
+            if (pool.getAvailableKinetic() < amount) return false;
             pool.consumeKinetic(amount);
             return true;
         }).orElse(false);
@@ -348,6 +368,7 @@ public class AshesToAshesStandEntity extends StandEntity {
 
     @Override
     protected double leapBaseStrength() {
+        // Great Jump is now handled by Active Consumption in AshesToAshesEventHandler.onLivingJump
         return super.leapBaseStrength();
     }
 

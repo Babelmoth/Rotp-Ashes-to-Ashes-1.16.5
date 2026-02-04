@@ -21,7 +21,7 @@ public class AshesToAshesRemoveBarrier extends StandAction {
     }
 
     @Override
-    public ActionConditionResult checkSpecificConditions(LivingEntity user, IStandPower power, ActionTarget target) {
+    public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
         if (target.getType() != ActionTarget.TargetType.BLOCK) {
             return conditionMessage("block_target");
         }
@@ -35,13 +35,12 @@ public class AshesToAshesRemoveBarrier extends StandAction {
         BlockPos targetPos = target.getBlockPos();
         if (targetPos == null) return;
         
-        // Check if target is our barrier (or if we clicked a barrier)
+        // Check if target is our barrier
         TileEntity te = world.getBlockEntity(targetPos);
         if (te instanceof FrozenBarrierBlockEntity) {
             FrozenBarrierBlockEntity barrier = (FrozenBarrierBlockEntity) te;
             if (user.getUUID().equals(barrier.getOwnerUUID())) {
-                // Release moths before removing barrier
-                barrier.releaseMoths();
+                barrier.spawnMothsAtBarrier();
                 world.removeBlock(targetPos, false);
                 AshesToAshesFrozenBarrier.onBarrierRemoved(user.getUUID(), targetPos);
             }

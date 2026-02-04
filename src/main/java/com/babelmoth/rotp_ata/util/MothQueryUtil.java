@@ -21,15 +21,14 @@ public class MothQueryUtil {
     }
     
     /**
-     * Gets free moths (not attached, not assigned to tasks) owned by the owner.
-     * Excludes guardian moths (shield persistent).
+     * Gets free moths (not attached, not assigned to tasks, not persistent shield) owned by the owner.
      */
     public static List<FossilMothEntity> getFreeMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner 
                 && !moth.isAttached() && !moth.isAttachedToEntity()
                 && !moth.isRecalling() && !moth.isPiercingFiring() && !moth.isPiercingCharging()
-                && !moth.isShieldPersistent());
+                && !moth.isShieldPersistent()); // Exclude guardian moths
     }
     
     /**
@@ -64,23 +63,20 @@ public class MothQueryUtil {
     }
     
     /**
-     * Gets moths available for swarm attack (free moths).
-     * Excludes guardian moths (shield persistent).
+     * Gets moths available for swarm attack (free moths, excluding guardian moths).
      */
     public static List<FossilMothEntity> getMothsForSwarm(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.getOwner() == owner && !moth.isAttached() && !moth.isAttachedToEntity()
-                && !moth.isShieldPersistent());
+                && !moth.isShieldPersistent()); // Exclude guardian moths
     }
     
     /**
      * Gets moths currently charging for kinetic piercing.
-     * Excludes guardian moths (shield persistent).
      */
     public static List<FossilMothEntity> getChargingMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
-            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isPiercingCharging()
-                && !moth.isShieldPersistent());
+            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isPiercingCharging());
     }
     
     /**
@@ -93,13 +89,21 @@ public class MothQueryUtil {
     }
     
     /**
-     * Gets moths with energy (kinetic or hamon) for detonation.
-     * Excludes guardian moths (shield persistent).
+     * Gets moths with energy (kinetic or hamon) for detonation, excluding guardian moths.
      */
     public static List<FossilMothEntity> getMothsWithEnergy(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner 
                 && (moth.isAttachedToEntity() || moth.getAttachedPos() != null)
-                && moth.getTotalEnergy() > 0 && !moth.isShieldPersistent());
+                && moth.getTotalEnergy() > 0
+                && !moth.isShieldPersistent()); // Exclude guardian moths
+    }
+    
+    /**
+     * Gets guardian moths (shield persistent) owned by the owner.
+     */
+    public static List<FossilMothEntity> getGuardianMoths(LivingEntity owner, double radius) {
+        return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
+            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isShieldPersistent());
     }
 }

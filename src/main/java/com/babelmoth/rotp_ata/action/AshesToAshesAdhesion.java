@@ -25,12 +25,7 @@ public class AshesToAshesAdhesion extends StandAction {
     
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // Shift+左键: 目标是自己 (不需要目标检测)
-        if (user.isShiftKeyDown()) {
-            return ActionConditionResult.POSITIVE;
-        }
-        
-        // 普通左键: 需要目标是方块或实体
+        // 需要目标是方块或实体
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             return ActionConditionResult.POSITIVE;
         }
@@ -76,10 +71,7 @@ public class AshesToAshesAdhesion extends StandAction {
             
             // 3. 执行依附
             if (activeMoth != null) {
-                // Shift+左键: 依附到使用者自己身上
-                if (user.isShiftKeyDown()) {
-                    activeMoth.attachToEntity(user);
-                } else if (target.getType() == ActionTarget.TargetType.BLOCK) {
+            if (target.getType() == ActionTarget.TargetType.BLOCK) {
                     activeMoth.attachTo(target.getBlockPos(), target.getFace());
                 } else if (target.getType() == ActionTarget.TargetType.ENTITY) {
                     activeMoth.attachToEntity(target.getEntity());

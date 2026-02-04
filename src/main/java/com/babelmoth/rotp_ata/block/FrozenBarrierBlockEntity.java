@@ -2,8 +2,12 @@ package com.babelmoth.rotp_ata.block;
 
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import com.babelmoth.rotp_ata.init.InitBlocks;
+import com.babelmoth.rotp_ata.capability.MothPoolProvider;
+import com.babelmoth.rotp_ata.action.AshesToAshesFrozenBarrier;
 import net.minecraft.block.BlockState;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.world.World;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SUpdateTileEntityPacket;
@@ -12,23 +16,23 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.UUID;
 
 public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTileEntity {
 
     private static final int MAX_KINETIC_ENERGY = 100;
     private static final double MAX_DISTANCE = 25.0;
-    private static final int MOTHS_PER_BARRIER = 3;
 
     private UUID ownerUUID;
     private int kineticEnergy = 0;
     private long placementTick;
-    private List<Integer> mothIds = new ArrayList<>(); // Store moth entity IDs
+    private int[] mothSlots = new int[AshesToAshesFrozenBarrier.MOTHS_PER_BARRIER]; // Pool slot indices
 
     public FrozenBarrierBlockEntity() {
         super(InitBlocks.FROZEN_BARRIER_TILE.get());
+        for (int i = 0; i < mothSlots.length; i++) {
+            mothSlots[i] = -1;
+        }
     }
 
     public void setOwner(PlayerEntity player) {
@@ -45,6 +49,7 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
     public void addKineticEnergy(int amount) {
         this.kineticEnergy += amount;
         if (this.kineticEnergy >= MAX_KINETIC_ENERGY) {
+            spawnMothsAtBarrier();
             removeBarrier();
         }
         setChanged();
@@ -57,41 +62,63 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
     public long getPlacementTick() {
         return placementTick;
     }
-
-    public List<Integer> getMothIds() {
-        return mothIds;
-    }
     
-    public void setMothIds(List<Integer> ids) {
-        this.mothIds = ids != null ? new ArrayList<>(ids) : new ArrayList<>();
+    /**
+     * Set the pool slot indices used by this barrier.
+     */
+    public void setMothSlots(int[] slots) {
+        this.mothSlots = slots.clone();
         setChanged();
     }
     
+    /**
+     * Get the pool slot indices used by this barrier.
+     */
+    public int[] getMothSlots() {
+        return mothSlots.clone();
+    }
+    
+    /**
+     * 在屏障位置生成三只飞蛾并分配原槽位，飞蛾会飞回主人；不召回槽位（由飞蛾接管）。
+     * 在移除屏障前调用。
+     */
+    public void spawnMothsAtBarrier() {
+        World w = level;
+        if (w == null || w.isClientSide || ownerUUID == null) return;
+
+        LivingEntity owner = w.getServer() != null ? w.getServer().getPlayerList().getPlayer(ownerUUID) : null;
+        if (owner == null) return;
+
+        double cx = worldPosition.getX() + 0.5;
+        double cy = worldPosition.getY() + 0.5;
+        double cz = worldPosition.getZ() + 0.5;
+
+        for (int i = 0; i < mothSlots.length; i++) {
+            int slot = mothSlots[i];
+            if (slot < 0) continue;
+
+            FossilMothEntity moth = new FossilMothEntity(w, owner);
+            moth.setMothPoolIndex(slot);
+            double ox = (i - 1) * 0.35;
+            double oz = (i % 2 == 0 ? 0.2 : -0.2);
+            moth.setPos(cx + ox, cy, cz + oz);
+            w.addFreshEntity(moth);
+            mothSlots[i] = -1;
+        }
+
+        owner.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+            if (owner instanceof net.minecraft.entity.player.ServerPlayerEntity) {
+                pool.sync((net.minecraft.entity.player.ServerPlayerEntity) owner);
+            }
+        });
+        setChanged();
+    }
+
     private void removeBarrier() {
         if (level != null && !level.isClientSide) {
-            // Release moths when barrier is removed
-            releaseMoths();
+            AshesToAshesFrozenBarrier.onBarrierRemoved(ownerUUID, worldPosition);
             level.removeBlock(worldPosition, false);
         }
-    }
-    
-    public void releaseMoths() {
-        if (level == null || level.isClientSide) return;
-        
-        for (Integer mothId : new ArrayList<>(mothIds)) {
-            net.minecraft.entity.Entity entity = level.getEntity(mothId);
-            if (entity instanceof FossilMothEntity) {
-                FossilMothEntity moth = (FossilMothEntity) entity;
-                // Detach from barrier
-                moth.detach();
-                // Make moth fly back to owner
-                if (moth.getOwner() != null) {
-                    moth.recall();
-                }
-            }
-        }
-        mothIds.clear();
-        setChanged();
     }
 
     @Override
@@ -104,6 +131,7 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
             if (owner != null) {
                 double distance = owner.distanceToSqr(worldPosition.getX() + 0.5, worldPosition.getY() + 0.5, worldPosition.getZ() + 0.5);
                 if (distance > MAX_DISTANCE * MAX_DISTANCE) {
+                    spawnMothsAtBarrier();
                     removeBarrier();
                     return;
                 }
@@ -119,8 +147,7 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
         }
         nbt.putInt("KineticEnergy", kineticEnergy);
         nbt.putLong("PlacementTick", placementTick);
-        int[] mothIdsArray = mothIds.stream().mapToInt(Integer::intValue).toArray();
-        nbt.putIntArray("MothIds", mothIdsArray);
+        nbt.putIntArray("MothSlots", mothSlots);
         return nbt;
     }
 
@@ -132,11 +159,11 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
         }
         kineticEnergy = nbt.getInt("KineticEnergy");
         placementTick = nbt.getLong("PlacementTick");
-        mothIds.clear();
-        if (nbt.contains("MothIds", 11)) { // 11 = IntArrayNBT type
-            int[] mothIdsArray = nbt.getIntArray("MothIds");
-            for (int id : mothIdsArray) {
-                mothIds.add(id);
+        
+        if (nbt.contains("MothSlots")) {
+            int[] loaded = nbt.getIntArray("MothSlots");
+            if (loaded.length == mothSlots.length) {
+                mothSlots = loaded;
             }
         }
     }

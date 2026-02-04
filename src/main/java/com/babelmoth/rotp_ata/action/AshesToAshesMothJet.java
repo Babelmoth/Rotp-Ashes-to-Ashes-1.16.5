@@ -1,101 +1,111 @@
 package com.babelmoth.rotp_ata.action;
 
-import java.util.List;
-
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
-import com.babelmoth.rotp_ata.entity.AshesToAshesStandEntity;
+import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
-import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
-import com.github.standobyte.jojo.util.mc.MCUtil;
+import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.SoundEvents;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 
+/**
+ * 飞蛾喷射：独立技能，可持续喷射并消耗精神力。
+ * 喷射出的飞蛾碰到敌人会依附，未碰到则碰到方块或飞行一段距离后消散（不减数回收）。
+ */
 public class AshesToAshesMothJet extends StandAction {
+
+    private static final float STAMINA_COST_PER_MOTH = 35.0f;
+    private static final int TICKS_PER_MOTH = 4; // 每 4 tick 发射一只
+    private static final float JET_SPEED = 2.5f;
 
     public AshesToAshesMothJet(AbstractBuilder<?> builder) {
         super(builder);
     }
-    
+
     @Override
     public TargetRequirement getTargetRequirement() {
         return TargetRequirement.NONE;
     }
 
     @Override
-    protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
-        if (!world.isClientSide) {
-            Entity targetEntity = null;
-            
-            double range = 64.0D;
-            net.minecraft.util.math.vector.Vector3d eyePos;
-            net.minecraft.util.math.vector.Vector3d lookVec;
-            Entity viewEntity = user;
-            
-            IStandManifestation stand = power.getStandManifestation();
-            if (stand instanceof StandEntity) {
-                StandEntity standEntity = (StandEntity) stand;
-                if (standEntity.isManuallyControlled()) {
-                    viewEntity = standEntity;
-                    eyePos = standEntity.getEyePosition(1.0F);
-                    lookVec = standEntity.getViewVector(1.0F);
-                } else {
-                    eyePos = user.getEyePosition(1.0F);
-                    lookVec = user.getViewVector(1.0F);
-                }
-            } else {
-                eyePos = user.getEyePosition(1.0F);
-                lookVec = user.getViewVector(1.0F);
-            }
-            
-            net.minecraft.util.math.vector.Vector3d maxVec = eyePos.add(lookVec.x * range, lookVec.y * range, lookVec.z * range);
-            net.minecraft.util.math.AxisAlignedBB aabb = viewEntity.getBoundingBox().expandTowards(lookVec.scale(range)).inflate(1.0D, 1.0D, 1.0D);
-            
-            final Entity finalViewEntity = viewEntity;
-            net.minecraft.util.math.EntityRayTraceResult result = net.minecraft.entity.projectile.ProjectileHelper.getEntityHitResult(
-                viewEntity, 
-                eyePos, 
-                maxVec, 
-                aabb, 
-                entity -> !entity.isSpectator() && entity.isPickable() && entity instanceof LivingEntity && entity != user && entity != finalViewEntity && !(entity instanceof FossilMothEntity), 
-                range * range
-            );
-            
-            if (result != null) {
-                targetEntity = result.getEntity();
-            }
+    public int getHoldDurationMax(IStandPower standPower) {
+        return Integer.MAX_VALUE;
+    }
 
-            if (targetEntity != null) {
-                AshesToAshesStandEntity standEntity = (stand instanceof AshesToAshesStandEntity) ? (AshesToAshesStandEntity)stand : null;
-                if (standEntity != null) {
-                    final Entity finalTarget = targetEntity; 
-                    int burstCount = 10;
-                    user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                        for (int i = 0; i < burstCount; i++) {
-                            int slot = pool.allocateSlotWithPriority(true); // Draw from empty moths in warehouse
-                            if (slot != -1) {
-                                FossilMothEntity newMoth = new FossilMothEntity(world, user);
-                                newMoth.setMothPoolIndex(slot);
-                                
-                                net.minecraft.util.math.vector.Vector3d dir = finalTarget.position().subtract(user.position()).normalize();
-                                dir = dir.add((world.random.nextDouble()-0.5)*0.5, (world.random.nextDouble()-0.5)*0.5, (world.random.nextDouble()-0.5)*0.5);
-                                
-                                newMoth.setDeltaMovement(dir.scale(1.5));
-                                newMoth.setPos(user.getX(), user.getEyeY(), user.getZ());
-                                newMoth.swarmTo(finalTarget);
-                                world.addFreshEntity(newMoth);
-                            }
-                        }
-                        if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                            pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
-                        }
-                    });
-                }
+    @Override
+    public ActionConditionResult checkSpecificConditions(LivingEntity user, IStandPower power, ActionTarget target) {
+        IStandManifestation manifestation = power.getStandManifestation();
+        if (manifestation instanceof StandEntity) {
+            StandEntity stand = (StandEntity) manifestation;
+            if (stand.isManuallyControlled()) {
+                return ActionConditionResult.NEGATIVE;
             }
         }
+        return ActionConditionResult.POSITIVE;
+    }
+
+    @Override
+    protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
+        // 单次点击也发射一只（可选）
+        if (!world.isClientSide && power.getStamina() >= STAMINA_COST_PER_MOTH) {
+            trySpawnJetMoth(world, user, power);
+        }
+    }
+
+    @Override
+    public void onHoldTick(World world, LivingEntity user, IStandPower power, int ticksHeld, ActionTarget target, boolean requirementsMet) {
+        if (world.isClientSide || !requirementsMet) return;
+        if (ticksHeld % TICKS_PER_MOTH != 0) return;
+        if (power.getStamina() < STAMINA_COST_PER_MOTH) return;
+
+        if (trySpawnJetMoth(world, user, power)) {
+            power.consumeStamina(STAMINA_COST_PER_MOTH);
+        }
+    }
+
+    private boolean trySpawnJetMoth(World world, LivingEntity user, IStandPower power) {
+        Vector3d eyePos = user.getEyePosition(1.0F);
+        Vector3d lookVec = user.getViewVector(1.0F);
+        IStandManifestation stand = power.getStandManifestation();
+        if (stand instanceof StandEntity) {
+            StandEntity standEntity = (StandEntity) stand;
+            if (standEntity.isManuallyControlled()) {
+                eyePos = standEntity.getEyePosition(1.0F);
+                lookVec = standEntity.getViewVector(1.0F);
+            }
+        }
+
+        final Vector3d dir = lookVec.add(
+            (world.random.nextDouble() - 0.5) * 0.15,
+            (world.random.nextDouble() - 0.5) * 0.15,
+            (world.random.nextDouble() - 0.5) * 0.15
+        ).normalize();
+
+        final Vector3d spawnPos = eyePos.add(dir.scale(0.5));
+        final LivingEntity owner = user;
+
+        return owner.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+            .map(pool -> {
+                int slot = pool.allocateSlotWithPriority(true);
+                if (slot == -1) return false;
+                FossilMothEntity moth = new FossilMothEntity(world, owner);
+                moth.setMothPoolIndex(slot);
+                moth.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+                moth.jetFire(dir, JET_SPEED);
+                world.addFreshEntity(moth);
+                if (owner instanceof net.minecraft.entity.player.ServerPlayerEntity) {
+                    pool.sync((net.minecraft.entity.player.ServerPlayerEntity) owner);
+                }
+                world.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z,
+                    SoundEvents.BEE_LOOP, SoundCategory.PLAYERS, 0.25f, 1.2f + world.random.nextFloat() * 0.3f);
+                return true;
+            })
+            .orElse(false);
     }
 }

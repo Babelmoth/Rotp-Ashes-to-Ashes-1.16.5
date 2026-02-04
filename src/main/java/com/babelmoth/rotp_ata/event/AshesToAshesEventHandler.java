@@ -29,6 +29,7 @@ import net.minecraft.entity.ai.attributes.ModifiableAttributeInstance;
 import net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.event.world.BlockEvent;
+import net.minecraftforge.event.TickEvent;
 
 import java.util.UUID;
 
@@ -56,6 +57,14 @@ public class AshesToAshesEventHandler {
         }
     }
 
+    // 大跳仅使用 RotP 本体的 shift+空格 跳跃逻辑（AshesToAshesStandEntity.getLeapStrength），不再在普通跳跃时触发爆炸音效大跳
+
+    @SubscribeEvent
+    public static void onWorldTick(TickEvent.WorldTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (event.world.isClientSide || !(event.world instanceof net.minecraft.world.server.ServerWorld)) return;
+        com.babelmoth.rotp_ata.action.AshesToAshesMothSwarmAttack.tickPendingSwarmAttacks((net.minecraft.world.server.ServerWorld) event.world);
+    }
 
     @SubscribeEvent
     public static void onLivingUpdate(LivingUpdateEvent event) {
@@ -122,8 +131,9 @@ public class AshesToAshesEventHandler {
                 clearModifiers(entity);
             }
         } else {
-            // Apply Debuffs for Others (Normal Siphon logic)
-            updateDebuff(entity, Attributes.MOVEMENT_SPEED, SPEED_MODIFIER_UUID, "Moth Speed Debuff", -0.10 * validMothCount, AttributeModifier.Operation.MULTIPLY_TOTAL);
+            // 依附时对敌人运动的影响：上限提高，5 只以上即可完全定身（MOVEMENT_SPEED 修正 -1.0 = 无法移动）
+            double speedDebuff = Math.max(-1.0, -0.20 * validMothCount);
+            updateDebuff(entity, Attributes.MOVEMENT_SPEED, SPEED_MODIFIER_UUID, "Moth Speed Debuff", speedDebuff, AttributeModifier.Operation.MULTIPLY_TOTAL);
             updateDebuff(entity, Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE_MODIFIER_UUID, "Moth Damage Buff", -1.0 * validMothCount, AttributeModifier.Operation.ADDITION);
             updateDebuff(entity, Attributes.ATTACK_SPEED, ATTACK_SPEED_MODIFIER_UUID, "Moth Attack Speed Debuff", -0.10 * validMothCount, AttributeModifier.Operation.MULTIPLY_TOTAL);
             
@@ -134,12 +144,29 @@ public class AshesToAshesEventHandler {
                 }
             }
 
-            // Movement Siphon (Only for non-owners)
+            // 运动动能吸收：每 20 tick 有总量上限，平均分配到有空间的飞蛾；吸满的飞蛾自动脱落飞回
             double speedSqr = entity.getDeltaMovement().lengthSqr();
             if (speedSqr > 0.0001 && entity.tickCount % 20 == 0) {
+                final int kineticBudgetPerPeriod = 2; // 每 20 tick 整实体的吸收上限
+                java.util.List<FossilMothEntity> withRoom = new java.util.ArrayList<>();
                 for (FossilMothEntity moth : attachedMoths) {
-                    if (moth.getTotalEnergy() < moth.getMaxEnergy()) {
-                         moth.setKineticEnergy(moth.getKineticEnergy() + 1);
+                    if (moth.getKineticEnergy() < moth.getMaxEnergy()) withRoom.add(moth);
+                }
+                for (int b = 0; b < kineticBudgetPerPeriod && !withRoom.isEmpty(); b++) {
+                    withRoom.sort(java.util.Comparator.comparingInt(FossilMothEntity::getKineticEnergy));
+                    FossilMothEntity moth = withRoom.get(0);
+                    int next = Math.min(moth.getKineticEnergy() + 1, moth.getMaxEnergy());
+                    moth.setKineticEnergy(next);
+                    if (next >= moth.getMaxEnergy()) {
+                        withRoom.remove(moth);
+                        moth.recall();
+                    }
+                }
+                // 吸满动能的飞蛾（含其他来源）统一脱落飞回
+                java.util.List<FossilMothEntity> attachedAgain = MothQueryUtil.getAttachedMoths(entity, AshesToAshesConstants.QUERY_RADIUS_ATTACHMENT);
+                for (FossilMothEntity moth : new java.util.ArrayList<>(attachedAgain)) {
+                    if (moth.getKineticEnergy() >= moth.getMaxEnergy() && moth.isAlive()) {
+                        moth.recall();
                     }
                 }
             }
@@ -380,12 +407,16 @@ public class AshesToAshesEventHandler {
                 float excessDamage = (totalDamage - 15) * 0.5f;
                 float damagePerMoth = excessDamage / mothCount;
                 for (FossilMothEntity moth : selfAdheredMoths) {
-                    // Use GENERIC to avoid recursion
                     moth.hurt(DamageSource.GENERIC, damagePerMoth);
                 }
             }
+            // 吸满动能的飞蛾自动脱落飞回
+            for (FossilMothEntity moth : new java.util.ArrayList<>(selfAdheredMoths)) {
+                if (moth.getKineticEnergy() >= moth.getMaxEnergy() && moth.isAlive()) {
+                    moth.recall();
+                }
+            }
             
-            // Cancel original damage to owner
             event.setCanceled(true);
             return;
         }

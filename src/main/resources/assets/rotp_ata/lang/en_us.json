@@ -2,11 +2,12 @@
   "stand.rotp_ata.ashes_to_ashes": "Ashes to Ashes",
   "entity.rotp_ata.fossil_moth": "Fossil Moth",
   "action.rotp_ata.ashes_to_ashes_adhesion": "Adhesion",
+  "action.rotp_ata.ashes_to_ashes_kinetic_adhesion": "Kinetic Adhesion",
   "action.rotp_ata.ashes_to_ashes_moth_recall": "Moth Recall",
   "action.rotp_ata.ashes_to_ashes_moth_swarm_attack": "Moth Swarm Attack",
   "action.rotp_ata.ashes_to_ashes_moth_jet": "Moth Jet",
   "action.rotp_ata.ashes_to_ashes_swarm_recall": "Swarm Recall",
-  "action.rotp_ata.ashes_to_ashes_momentum_strike": "Momentum Heavy Strike",
+  "action.rotp_ata.ashes_to_ashes_moth_bite": "Moth Bite",
   "action.rotp_ata.ashes_to_ashes_swarm_shield_self": "Swarm Shield",
   "action.rotp_ata.ashes_to_ashes_swarm_shield_target": "Swarm Guardian",
   "action.rotp_ata.ashes_to_ashes_kinetic_piercing": "Kinetic Piercing",
@@ -16,7 +17,7 @@
   "action.rotp_ata.ashes_to_ashes_kinetic_sensing": "Kinetic Sensing",
   "action.rotp_ata.ashes_to_ashes_frozen_barrier": "Frozen Barrier",
   "action.rotp_ata.ashes_to_ashes_remove_barrier": "Remove Barrier",
-  "action.rotp_ata.ashes_to_ashes_inertial_release": "Inertial Release",
   "block.rotp_ata.frozen_barrier": "Frozen Barrier",
-  "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action."
+  "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action.",
+  "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place."
 }

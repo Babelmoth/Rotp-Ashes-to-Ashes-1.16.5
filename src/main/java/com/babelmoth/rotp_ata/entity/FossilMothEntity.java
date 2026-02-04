@@ -104,9 +104,23 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public static final DataParameter<Boolean> IS_BULLET = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     public static final DataParameter<Boolean> KINETIC_SENSING_ENABLED = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     private long lastShieldTick = 0;
+    /** 飞蛾撕咬：该飞蛾下次可参与攻击的游戏时间 tick（仅服务端使用） */
+    private long mothBiteCooldownUntilTick = 0L;
     
     public void refreshShield() {
          this.lastShieldTick = level.getGameTime();
+    }
+
+    /** 飞蛾撕咬：当前是否处于 2 秒冷却中 */
+    public boolean isMothBiteOnCooldown() {
+        return level != null && !level.isClientSide && level.getGameTime() < mothBiteCooldownUntilTick;
+    }
+
+    /** 飞蛾撕咬：本次攻击后进入 2 秒冷却 */
+    public void setMothBiteCooldown() {
+        if (level != null && !level.isClientSide) {
+            mothBiteCooldownUntilTick = level.getGameTime() + 40; // 2 seconds
+        }
     }
     
     public boolean isRecalling() {
@@ -198,16 +212,8 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         int toSpawn = targetCount - existingCount;
         if (toSpawn <= 0) return;
         
-        // Apply kinetic sensing state to new moths if enabled
-        boolean sensingEnabled = com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(user);
-        
         for (int i = 0; i < toSpawn; i++) {
             FossilMothEntity moth = new FossilMothEntity(level, user);
-            
-            // Apply kinetic sensing state if enabled
-            if (sensingEnabled) {
-                moth.setKineticSensingEnabled(true);
-            }
             
             // 在用户周围生成
             double offsetX = (level.random.nextDouble() - 0.5) * 1.5;
@@ -334,7 +340,35 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     }
     
     private int piercingLifeTime = 0;
-    
+    /** 飞蛾喷射：为 true 时碰到实体则依附，碰到方块或超距则消散（不减数回收） */
+    private boolean isJetProjectile = false;
+    /** 移除时是否直接消耗槽位（不回收） */
+    private boolean dissipateOnRemove = false;
+
+    public boolean isJetProjectile() {
+        return isJetProjectile;
+    }
+
+    public void setJetProjectile(boolean jetProjectile) {
+        this.isJetProjectile = jetProjectile;
+    }
+
+    public void setDissipateOnRemove(boolean dissipateOnRemove) {
+        this.dissipateOnRemove = dissipateOnRemove;
+    }
+
+    /** 飞蛾喷射：沿方向飞出，碰到敌人则依附，碰到方块或飞行一段距离后消散 */
+    public void jetFire(net.minecraft.util.math.vector.Vector3d direction, float speed) {
+        this.entityData.set(IS_PIERCING_CHARGING, false);
+        this.entityData.set(IS_PIERCING_FIRING, true);
+        this.entityData.set(PIERCING_SPEED, speed);
+        this.piercingLifeTime = 0;
+        this.isJetProjectile = true;
+        this.setDeltaMovement(direction.normalize().scale(speed));
+        this.setNoAi(true);
+        this.setNoGravity(true);
+    }
+
     public void swarmTo(Entity target) {
         this.entityData.set(SWARM_TARGET_ID, target.getId());
     }
@@ -626,7 +660,9 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         // Handle Piercing Firing FIRST - completely override normal tick
         if (isPiercingFiring()) {
             this.piercingLifeTime++;
-            if (this.piercingLifeTime > 100 || this.getDeltaMovement().lengthSqr() < 0.01) {
+            int maxLife = isJetProjectile ? 80 : 100; // 喷射飞蛾飞行约 4 秒后消散
+            if (this.piercingLifeTime > maxLife || this.getDeltaMovement().lengthSqr() < 0.01) {
+                if (isJetProjectile) setDissipateOnRemove(true); // 不减数回收
                 spawnDespawnParticles();
                 this.remove();
                 return;
@@ -649,9 +685,16 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
             
             // 2. Iterate Entities along path
-            // Expand box to cover the entire movement path + inflation
             net.minecraft.util.math.AxisAlignedBB collisionBox = this.getBoundingBox().expandTowards(motion).inflate(1.0);
-            List<Entity> hits = this.level.getEntities(this, collisionBox, e -> e instanceof LivingEntity && e != getOwner() && !e.isSpectator());
+            List<Entity> hits = this.level.getEntities(this, collisionBox, e -> {
+                if (!(e instanceof LivingEntity) || e == getOwner() || e.isSpectator()) return false;
+                if (isJetProjectile) {
+                    // 飞蛾喷射不攻击：化石蛾、无敌实体（替身可被依附）
+                    if (e instanceof FossilMothEntity) return false;
+                    if (((LivingEntity)e).isInvulnerableTo(DamageSource.GENERIC)) return false;
+                }
+                return true;
+            });
             
             // Calculate Damage (using total energy)
             boolean useHamon = getHamonEnergy() > 0;
@@ -675,10 +718,17 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
             
             for (Entity e : hits) {
-                // Precise check: does vector intersect entity box?
-                // Or just lenient check since we filtered by path box
                 if (e.getBoundingBox().intersects(this.getBoundingBox().expandTowards(motion).inflate(0.5))) {
                      LivingEntity target = (LivingEntity)e;
+                     // 飞蛾喷射：碰到敌人则依附（含替身；仅排除化石蛾等已在上面过滤），不造成伤害
+                     if (isJetProjectile) {
+                         this.entityData.set(IS_PIERCING_FIRING, false);
+                         this.isJetProjectile = false;
+                         this.setPos(target.getX(), target.getY(), target.getZ());
+                         this.attachToEntity(target);
+                         this.setNoAi(true);
+                         return;
+                     }
                      
                      // --- Guard-Breaking Logic ---
                      // Disable player shields
@@ -727,6 +777,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             
             // 3. Handle Hit Result (Block Collision) - With Penetration Logic
             if (hitResult.getType() == net.minecraft.util.math.RayTraceResult.Type.BLOCK) {
+                 if (isJetProjectile) {
+                     setDissipateOnRemove(true);
+                     spawnDespawnParticles();
+                     this.remove();
+                     return;
+                 }
                  net.minecraft.util.math.BlockRayTraceResult blockHit = (net.minecraft.util.math.BlockRayTraceResult)hitResult;
                  BlockPos targetPos = blockHit.getBlockPos();
                  net.minecraft.block.BlockState state = level.getBlockState(targetPos);
@@ -814,13 +870,13 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
 
         super.tick();
         
-        // Apply kinetic sensing state from owner if enabled (for newly spawned moths)
+        // Sync kinetic sensing state from owner (for continuous effect)
         if (!level.isClientSide) {
             LivingEntity owner = getOwner();
             if (owner != null) {
-                boolean shouldBeEnabled = com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(owner);
-                if (shouldBeEnabled != isKineticSensingEnabled()) {
-                    setKineticSensingEnabled(shouldBeEnabled);
+                boolean ownerSensingEnabled = com.babelmoth.rotp_ata.action.AshesToAshesKineticSensing.isSensingEnabled(owner);
+                if (ownerSensingEnabled != isKineticSensingEnabled()) {
+                    setKineticSensingEnabled(ownerSensingEnabled);
                 }
             }
         }
@@ -1806,14 +1862,10 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             LivingEntity owner = getOwner();
             if (owner != null) {
                 owner.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                    // Sync final state before removal
                     syncToPool();
-                    
-                    if (!this.isAlive()) {
-                        // Combat loss
+                    if (dissipateOnRemove || !this.isAlive()) {
                         pool.killMoth(mothPoolIndex);
                     } else {
-                        // Natural removal (Recall, Distance Culling, Unsummon)
                         pool.recallMoth(mothPoolIndex);
                     }
                     if (owner instanceof net.minecraft.entity.player.ServerPlayerEntity) {

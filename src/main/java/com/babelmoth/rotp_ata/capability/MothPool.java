@@ -79,6 +79,15 @@ public class MothPool implements IMothPool {
     }
 
     @Override
+    public int getAvailableKinetic() {
+        int sum = 0;
+        for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
+            if (!deployedSlots.get(i)) sum += kineticPool[i];
+        }
+        return sum;
+    }
+
+    @Override
     public int getTotalHamonEnergy() {
         int sum = 0;
         for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
@@ -215,17 +224,37 @@ public class MothPool implements IMothPool {
         while (totalConsumed < amount) {
             int richestIndex = -1;
             int maxEnergy = 0;
-            
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
+                if (deployedSlots.get(i)) continue; // 已放出飞蛾的槽位视为被占用，不参与消耗
                 if (kineticPool[i] > maxEnergy) {
                     maxEnergy = kineticPool[i];
                     richestIndex = i;
                 }
             }
-            
             if (richestIndex == -1) break;
-            
             int toTake = Math.min(amount - totalConsumed, maxEnergy);
+            kineticPool[richestIndex] -= toTake;
+            totalConsumed += toTake;
+        }
+        return totalConsumed;
+    }
+
+    @Override
+    public int consumeKineticExcludingSlot(int amount, int excludeSlot) {
+        if (excludeSlot < 0 || excludeSlot >= MAX_MOTHS) return consumeKinetic(amount);
+        int totalConsumed = 0;
+        while (totalConsumed < amount) {
+            int richestIndex = -1;
+            int maxEnergy = 0;
+            for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
+                if (deployedSlots.get(i) || i == excludeSlot) continue; // 被占用槽位与排除槽位均不消耗
+                if (kineticPool[i] > maxEnergy) {
+                    maxEnergy = kineticPool[i];
+                    richestIndex = i;
+                }
+            }
+            if (richestIndex == -1) break;
+            int toTake = Math.min(amount - totalConsumed, kineticPool[richestIndex]);
             kineticPool[richestIndex] -= toTake;
             totalConsumed += toTake;
         }
