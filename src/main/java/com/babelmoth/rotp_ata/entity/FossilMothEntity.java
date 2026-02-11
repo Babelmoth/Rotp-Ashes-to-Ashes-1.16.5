@@ -57,11 +57,7 @@ import net.minecraft.network.datasync.EntityDataManager;
 import net.minecraft.util.Direction;
 import net.minecraft.potion.EffectInstance;
 import net.minecraft.potion.Effects;
-// import com.github.standobyte.jojo.init.ModEffects; // Invalid
-import com.github.standobyte.jojo.init.ModStatusEffects; // Corrected
-// import com.github.standobyte.jojo.power.nonstand.INonStandPower; // Invalid pkg
-// import com.github.standobyte.jojo.power.nonstand.type.NonStandPowerType; // Invalid pkg
-// import com.github.standobyte.jojo.init.power.hamon.ModHamon; // Invalid pkg
+import com.github.standobyte.jojo.init.ModStatusEffects;
 
 
 
@@ -73,17 +69,17 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
 
     private final AnimationFactory factory = new AnimationFactory(this);
     
-    // 记录驻留位置
+    // Cached stay position for simple "stay" behavior
     private double stayX, stayY, stayZ;
     private boolean isStaying = false;
     private int desyncDelay;
-    // replaced with DataParameter
+    // Legacy fields were replaced with DataParameter-backed state
     
-    // 依附状态: -1 = 飞行, 0-5 = Direction.getIndex()
+    // Recall state flag and persistent shield flag
     private static final DataParameter<Boolean> IS_RECALLING = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     private static final DataParameter<Boolean> IS_SHIELD_PERSISTENT = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
 
-    // 依附状态: -1 = 飞行, 0-5 = Direction.getIndex()
+    // Attachment state: -1 = flying, 0–5 = Direction.getIndex()
     public static final DataParameter<Byte> ATTACHED_FACE = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BYTE);
     public static final DataParameter<Float> ATTACHED_OFFSET_X = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.FLOAT);
     public static final DataParameter<Float> ATTACHED_OFFSET_Y = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.FLOAT);
@@ -104,19 +100,19 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public static final DataParameter<Boolean> IS_BULLET = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     public static final DataParameter<Boolean> KINETIC_SENSING_ENABLED = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     private long lastShieldTick = 0;
-    /** 飞蛾撕咬：该飞蛾下次可参与攻击的游戏时间 tick（仅服务端使用） */
+    /** Moth bite: next game tick at which this moth is allowed to participate in a bite (server-side only). */
     private long mothBiteCooldownUntilTick = 0L;
     
     public void refreshShield() {
          this.lastShieldTick = level.getGameTime();
     }
 
-    /** 飞蛾撕咬：当前是否处于 2 秒冷却中 */
+    /** Moth bite: whether this moth is currently inside the 2-second cooldown window. */
     public boolean isMothBiteOnCooldown() {
         return level != null && !level.isClientSide && level.getGameTime() < mothBiteCooldownUntilTick;
     }
 
-    /** 飞蛾撕咬：本次攻击后进入 2 秒冷却 */
+    /** Moth bite: mark the moth as entering a 2-second cooldown after an attack. */
     public void setMothBiteCooldown() {
         if (level != null && !level.isClientSide) {
             mothBiteCooldownUntilTick = level.getGameTime() + 40; // 2 seconds
@@ -214,18 +210,18 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         
         for (int i = 0; i < toSpawn; i++) {
             FossilMothEntity moth = new FossilMothEntity(level, user);
-            
-            // 在用户周围生成
+
+            // Spawn around the owner with a small random offset
             double offsetX = (level.random.nextDouble() - 0.5) * 1.5;
             double offsetY = 1 + level.random.nextDouble() * 1.0;
             double offsetZ = (level.random.nextDouble() - 0.5) * 1.5;
-            
+
             moth.setPos(
                 user.getX() + offsetX,
                 user.getY() + offsetY,
                 user.getZ() + offsetZ
             );
-            
+
             level.addFreshEntity(moth);
         }
     }
@@ -236,7 +232,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.setNoGravity(true);
         this.setPathfindingMalus(PathNodeType.DANGER_FIRE, -1.0F);
         this.setPathfindingMalus(PathNodeType.WATER, -1.0F);
-        // 随机启动延迟（0-20 tick）实现动画去同步
+        // Random startup delay (0–20 ticks) to desynchronize animations across the swarm
         this.desyncDelay = this.random.nextInt(20);
     }
     
@@ -340,9 +336,9 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     }
     
     private int piercingLifeTime = 0;
-    /** 飞蛾喷射：为 true 时碰到实体则依附，碰到方块或超距则消散（不减数回收） */
+    /** When true (moth jet): on entity hit the moth attaches; on block hit or timeout it despawns without decrementing pool count. */
     private boolean isJetProjectile = false;
-    /** 移除时是否直接消耗槽位（不回收） */
+    /** If true, removal consumes the slot (no recall/reserve). */
     private boolean dissipateOnRemove = false;
 
     public boolean isJetProjectile() {
@@ -357,7 +353,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.dissipateOnRemove = dissipateOnRemove;
     }
 
-    /** 飞蛾喷射：沿方向飞出，碰到敌人则依附，碰到方块或飞行一段距离后消散 */
+    /** Moth jet: flies in direction; on entity hit attaches, on block hit or after flight time despawns. */
     public void jetFire(net.minecraft.util.math.vector.Vector3d direction, float speed) {
         this.entityData.set(IS_PIERCING_CHARGING, false);
         this.entityData.set(IS_PIERCING_FIRING, true);
@@ -473,8 +469,8 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public static AttributeModifierMap.MutableAttribute createAttributes() {
         return TameableEntity.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 5.0D)
-                .add(Attributes.MOVEMENT_SPEED, 0.4D)   // 适当降低速度
-                .add(Attributes.FLYING_SPEED, 0.8D)     // 适当降低飞行速度
+                .add(Attributes.MOVEMENT_SPEED, 0.4D)   // Slightly reduced ground speed
+                .add(Attributes.FLYING_SPEED, 0.8D)     // Slightly reduced flying speed
                 .add(Attributes.ARMOR, 2.0D);
     }
 
@@ -520,7 +516,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     protected void pushEntities() {
     }
     
-    // 禁用掉落伤害和粒子效果
+    // Disable fall damage and related particles
     @Override
     public boolean causeFallDamage(float distance, float multiplier) {
         return false;
@@ -528,12 +524,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     
     @Override
     protected void checkFallDamage(double y, boolean onGround, net.minecraft.block.BlockState state, BlockPos pos) {
-        // 不产生掉落粒子效果
+        // Override without calling super to avoid default fall particles
     }
     
     /**
-     * 获取当前alpha透明度(用于渲染)
-     * 前15 tick 从0渐变到1实现淡入效果
+     * Get current alpha value for rendering.
+     * Fades in from 0 to 1 over the first 15 ticks.
      */
     public float getAlpha(float partialTick) {
         float ticks = this.tickCount + partialTick;
@@ -549,9 +545,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             return false;
         }
         
-        // 检查是否为波纹伤害 (需检查 Ripples of the Past 的波纹伤害类型)
-        // 假设 Ripple damage 有特定标识，或者我们简单判断是否为 Magic + User是波纹使者?
-        // 暂时假设所有非物理伤害为特殊伤害，或者检查 source.getMsgId().contains("ripple")?
+        // Heuristic check for Hamon/Ripple damage sources (RotP-specific damage types).
         boolean isHamon = source.getMsgId().contains("ripple") || source.getMsgId().contains("hamon") || source.getMsgId().contains("overdrive");
         
         if (isHamon) {
@@ -559,30 +553,29 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             return false;
         }
         
-        // 物理伤害吸收逻辑
-        // 排除: 摔落(已免疫), 虚空, 指令kill, 魔法(药水), 饥饿, 窒息
+        // Physical damage absorption logic.
+        // Excludes: fall (already immune), void, command kill, magic (potions), hunger, suffocation.
         if (!source.isBypassArmor() && !source.isMagic() && source != DamageSource.OUT_OF_WORLD) {
             int currentEnergy = getKineticEnergy();
             int max = getMaxEnergy();
             
             if (currentEnergy < max) {
-                // 吸收动能
+                // Absorb incoming damage as kinetic energy instead of taking HP damage.
                 int absorbed = Math.min((int)amount, max - currentEnergy);
                 setKineticEnergy(currentEnergy + absorbed);
-                return false; // 完全无效化
+                return false; // Fully negate this hit
             } else {
-                // 动能已满，伤害转移给本体
+                // Kinetic capacity is full; route some damage back to the owner instead.
                 LivingEntity owner = getOwner();
                 if (owner != null) {
-                    // 计算比例: 50血对应2血 -> 25:1
-                    // 假设总血量50 (max), 本体每只蛾子对应2点.
+                    // Map owner max health (~50) to ~2 HP per moth → roughly 25:1 ratio.
                     float ratio = 2.0f / 50.0f; // 0.04
                     float damageToOwner = amount * ratio;
                     if (damageToOwner > 0) {
                         owner.hurt(source, damageToOwner);
                     }
                 }
-                // 自己也受伤
+                // Moth also takes damage once the owner has been hurt
                 return super.hurt(source, amount);
             }
         }
@@ -607,14 +600,14 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     }
     
     private void spawnDespawnParticles() {
-        // 消散特效 - 生成灰尘粒子向下掉落 (vy < -0.01 触发扩散模式)
+        // Despawn visual: spawn fossil ash particles drifting downward (vy < -0.01 triggers a falling/spreading look)
         if (level.isClientSide) {
             for (int i = 0; i < 10; i++) {
                 double angle = random.nextDouble() * Math.PI * 2;
                 double dist = 0.08 + random.nextDouble() * 0.1;
                 double vx = Math.cos(angle) * dist;
                 double vz = Math.sin(angle) * dist;
-                double vy = -0.02 - random.nextDouble() * 0.03; // 负值触发下落模式
+                double vy = -0.02 - random.nextDouble() * 0.03; // Negative Y to enforce falling motion
                 level.addParticle(com.babelmoth.rotp_ata.init.InitParticles.FOSSIL_ASH.get(), 
                     getX() + (random.nextDouble() - 0.5) * 0.2, 
                     getY() + 0.15 + random.nextDouble() * 0.2, 
@@ -657,12 +650,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         }
         // ----------------------
         
-        // Handle Piercing Firing FIRST - completely override normal tick
+        // Handle piercing firing FIRST - completely overrides normal tick behavior
         if (isPiercingFiring()) {
             this.piercingLifeTime++;
-            int maxLife = isJetProjectile ? 80 : 100; // 喷射飞蛾飞行约 4 秒后消散
+            int maxLife = isJetProjectile ? 80 : 100; // Jet projectiles despawn after ~4 seconds of flight
             if (this.piercingLifeTime > maxLife || this.getDeltaMovement().lengthSqr() < 0.01) {
-                if (isJetProjectile) setDissipateOnRemove(true); // 不减数回收
+                if (isJetProjectile) setDissipateOnRemove(true); // Do not decrement swarm count when despawning jet projectiles
                 spawnDespawnParticles();
                 this.remove();
                 return;
@@ -689,7 +682,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             List<Entity> hits = this.level.getEntities(this, collisionBox, e -> {
                 if (!(e instanceof LivingEntity) || e == getOwner() || e.isSpectator()) return false;
                 if (isJetProjectile) {
-                    // 飞蛾喷射不攻击：化石蛾、无敌实体（替身可被依附）
+                    // Jet projectiles do NOT attack: other fossil moths or invulnerable entities (stands can still be attached to)
                     if (e instanceof FossilMothEntity) return false;
                     if (((LivingEntity)e).isInvulnerableTo(DamageSource.GENERIC)) return false;
                 }
@@ -720,7 +713,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             for (Entity e : hits) {
                 if (e.getBoundingBox().intersects(this.getBoundingBox().expandTowards(motion).inflate(0.5))) {
                      LivingEntity target = (LivingEntity)e;
-                     // 飞蛾喷射：碰到敌人则依附（含替身；仅排除化石蛾等已在上面过滤），不造成伤害
+                     // Moth jet: on hit attach to target (including stands; fossil moths already filtered above); do not deal damage
                      if (isJetProjectile) {
                          this.entityData.set(IS_PIERCING_FIRING, false);
                          this.isJetProjectile = false;
@@ -884,16 +877,16 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         // Kinetic Sensing passive effect
         tickKineticSensing();
         
-        // 生成特效 - 前15 tick显示灰尘聚集效果，蛾子在前8 tick隐形
+        // Client-only visual: first 15 ticks show ash gathering around the spawn point; moth is invisible for the first 8 ticks
         if (level.isClientSide && this.tickCount < 15) {
-            // 灰尘从周围聚集到中心 - 使用自定义FOSSIL_ASH粒子
+            // Fossil ash particles swirl from the surroundings toward the center
             for (int i = 0; i < 3; i++) {
                 double angle = random.nextDouble() * Math.PI * 2;
                 double dist = 0.5 + random.nextDouble() * 0.5;
                 double px = getX() + Math.cos(angle) * dist;
                 double pz = getZ() + Math.sin(angle) * dist;
                 double py = getY() + random.nextDouble() * 0.3;
-                // 粒子向中心移动
+                // Move particle velocities toward the moth center
                 double vx = (getX() - px) * 0.12;
                 double vz = (getZ() - pz) * 0.12;
                 double vy = (getY() + 0.15 - py) * 0.12;
@@ -901,7 +894,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
         }
         
-        // 淡入效果由 FossilMothRenderer.render() 中的 alpha 参数处理
+        // Fade-in effect is implemented by alpha value in FossilMothRenderer.render()
         
         // Client-side Hamon particles and sound - emit CONTINUOUSLY if moth has Hamon energy
         // This runs BEFORE any early returns so it works in all states
@@ -915,7 +908,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
         }
         
-        // 召回逻辑
+        // Recall behavior: moth returns to owner while IS_RECALLING is set
         if (this.entityData.get(IS_RECALLING)) {
             if (!this.level.isClientSide) {
                 LivingEntity owner = getOwner();
@@ -932,7 +925,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             return;
         }    
         
-        // 携带物品返回逻辑：飞蛾携带物品飞回主人身边
+        // Item-carry return behavior: moth carries an item entity back to the owner
         int carriedItemId = this.entityData.get(CARRIED_ITEM_ID);
         if (carriedItemId != -1) {
             Entity carriedItem = level.getEntity(carriedItemId);
@@ -940,15 +933,15 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             
             if (carriedItem instanceof ItemEntity && owner != null) {
                 ItemEntity itemEntity = (ItemEntity) carriedItem;
-                // 让物品实体跟随飞蛾
+                // Make the item entity follow the moth's position
                 if (!itemEntity.removed && !itemEntity.getItem().isEmpty()) {
-                    // 物品实体跟随飞蛾移动
+                    // Smoothly move the item entity toward the offset position under the moth
                     net.minecraft.util.math.vector.Vector3d mothPos = this.position();
                     net.minecraft.util.math.vector.Vector3d itemPos = itemEntity.position();
-                    net.minecraft.util.math.vector.Vector3d offset = new net.minecraft.util.math.vector.Vector3d(0, -0.3, 0); // 物品在飞蛾下方
+                    net.minecraft.util.math.vector.Vector3d offset = new net.minecraft.util.math.vector.Vector3d(0, -0.3, 0); // Item hovers slightly below the moth
                     net.minecraft.util.math.vector.Vector3d targetPos = mothPos.add(offset);
                     
-                    // 平滑移动物品实体到飞蛾位置
+                    // Smoothly move the item toward the target offset below the moth
                     double dx = targetPos.x - itemPos.x;
                     double dy = targetPos.y - itemPos.y;
                     double dz = targetPos.z - itemPos.z;
@@ -958,41 +951,41 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                         double speed = 0.3;
                         itemEntity.setDeltaMovement(
                             dx * speed / distance,
-                            dy * speed / distance + 0.1, // 轻微向上力
+                            dy * speed / distance + 0.1, // Slight upward lift
                             dz * speed / distance
                         );
                         itemEntity.setNoPickUpDelay();
-                        itemEntity.setOwner(this.getUUID()); // 锁定给飞蛾
+                        itemEntity.setOwner(this.getUUID()); // Lock pickup to this moth
                     } else {
-                        // 物品已到达飞蛾位置，保持跟随
+                        // Item has reached the target position; keep it glued to the moth
                         itemEntity.setDeltaMovement(0, 0, 0);
                         itemEntity.setPos(targetPos.x, targetPos.y, targetPos.z);
                     }
                     
-                    // 飞蛾飞回主人身边
+                    // Moth flies back toward the owner
                     this.navigation.moveTo(owner, 1.2);
                     
-                    // 当飞蛾接近主人时，将物品交给主人
+                    // When close enough to the owner, hand the item over
                     if (this.distanceToSqr(owner) < 3.0) {
                         giveItemToOwner(itemEntity);
                         this.entityData.set(CARRIED_ITEM_ID, -1);
                     }
                 } else {
-                    // 物品已消失，清除携带状态
+                    // Item disappeared; clear carry state
                     this.entityData.set(CARRIED_ITEM_ID, -1);
                 }
             } else {
-                // 物品实体不存在，清除携带状态
+                // Item entity no longer exists; clear carry state
                 this.entityData.set(CARRIED_ITEM_ID, -1);
             }
             return;
         }
         
-        // Swarming Logic: 生物 → 依附；物品实体 → 捡回主人
+        // Swarming logic: living entities -> attach; item entities -> retrieve and return to owner
         int swarmTargetId = this.entityData.get(SWARM_TARGET_ID);
         if (swarmTargetId != -1) {
              Entity target = level.getEntity(swarmTargetId);
-             // 对于 ItemEntity，使用更可靠的检查：!removed 且物品不为空
+             // For ItemEntity, ensure it is still present and holding a non-empty stack
              boolean targetValid = target != null && !target.removed;
              if (target instanceof ItemEntity) {
                  ItemEntity itemEntity = (ItemEntity) target;
@@ -1007,7 +1000,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                  if (this.distanceToSqr(target) < 2.0) {
                      this.entityData.set(SWARM_TARGET_ID, -1);
                      if (target instanceof ItemEntity) {
-                         // 物品实体：飞蛾携带物品飞回，不依附
+                         // Item entity: start carry-back behavior instead of attaching
                          startCarryingItem((ItemEntity) target);
                      } else {
                          attachToEntity(target);
@@ -1020,12 +1013,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
              return;
         }
 
-        // 护盾/保护模式逻辑
+        // Shield / protection mode logic
         Entity shieldTarget = getShieldTarget();
         
         // Heartbeat check: If shield target hasn't been refreshed in 5 ticks, clear it.
         // This ensures if the action stops without triggering stoppedHolding, the shield drops.
-        // 只在非持久化模式下检查心跳
+        // Only perform heartbeat checks for non-persistent shield targets
         if (shieldTarget != null && !isShieldPersistent()) {
             if (level.getGameTime() - lastShieldTick > 5) {
                 setShieldTarget(null);
@@ -1034,38 +1027,38 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         }
 
         if (shieldTarget != null && shieldTarget.isAlive()) {
-             // 简化的护盾逻辑 - 类似依附，使用固定偏移
-             // 每只蛾子基于自己的ID计算一个固定的角度偏移
-             float angleOffset = (this.getId() % 10) * 36.0f; // 0-360度分布
-             double rad = Math.toRadians(angleOffset + (level.getGameTime() * 2) % 360); // 缓慢旋转
+             // Simplified shield orbit: similar to attachment but uses a fixed angular offset.
+             // Each moth gets a deterministic offset based on its entity id.
+             float angleOffset = (this.getId() % 10) * 36.0f; // Distribute across 0–360 degrees
+             double rad = Math.toRadians(angleOffset + (level.getGameTime() * 2) % 360); // Slowly rotate over time
              
-             double radius = 0.8; // 更近的环绕距离
-             double heightOffset = 0.8 + ((this.getId() % 3) * 0.3); // 不同高度层
+             double radius = 0.8; // Tighter orbit distance
+             double heightOffset = 0.8 + ((this.getId() % 3) * 0.3); // Stagger height by layer
              
              double tx = shieldTarget.getX() + Math.cos(rad) * radius;
              double tz = shieldTarget.getZ() + Math.sin(rad) * radius;
              double ty = shieldTarget.getY() + heightOffset;
              
-             // 直接设置位置而非导航（更精确）
+             // Set position directly instead of navigation for precise orbit
              this.setPos(tx, ty, tz);
              this.setDeltaMovement(0, 0, 0);
-             
-             // 朝向目标
+
+             // Face the shield target
              double dx = shieldTarget.getX() - tx;
              double dz = shieldTarget.getZ() - tz;
              this.yRot = (float)(Math.atan2(dz, dx) * (180.0 / Math.PI)) - 90.0f;
              this.yBodyRot = this.yRot;
              this.yHeadRot = this.yRot;
              
-             return; // 护盾模式下覆盖普通跟随
+             return; // Shield mode overrides normal follow
         }
         
-        if (isAttached()) {
+            if (isAttached()) {
             this.setDeltaMovement(0, 0, 0);
             
-            // 强制锁定朝向防止AI漂移
+                // Lock facing direction to avoid AI drifting while attached to a block
             if (attachedPos != null) {
-                // 再次读取依附面以确认朝向
+                // Re-read attached face to lock orientation
                 Direction face = getAttachedFace();
                 if (face != null) {
                     float lockedYaw = 0;
@@ -1088,7 +1081,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
 
             if (!level.isClientSide) {
-                // 检查所依附的方块是否还存在
+                // If the attached block was removed, detach
                 if (attachedPos != null && level.getBlockState(attachedPos).isAir()) {
                     detach();
                 }
@@ -1116,35 +1109,33 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                 }
             }
             
-            return; // 依附时不执行飞行逻辑
+            return; // Do not run flight logic while attached to block
         }
-        
-        // 飞行时不再掉落灰烬粒子 (用户要求移除)
-        
-        // 实体依附状态逻辑
+
+        // Entity-attachment state logic
         if (isAttachedToEntity()) {
             this.setDeltaMovement(0, 0, 0);
             Entity target = level.getEntity(this.entityData.get(ATTACHED_ENTITY_ID));
             
             if (target != null && target.isAlive()) {
-                // 计算跟随位置 (基于目标朝向旋转偏移量)
+                // Compute follow position based on the target's yaw and stored local offset
                 float targetYaw = target instanceof LivingEntity ? ((LivingEntity)target).yBodyRot : target.yRot;
                 float offX = this.entityData.get(ATTACHED_OFFSET_X);
                 float offY = this.entityData.get(ATTACHED_OFFSET_Y);
                 float offZ = this.entityData.get(ATTACHED_OFFSET_Z);
                 
-                // 旋转偏移向量 (绕Y轴旋转 targetYaw)
+                // Rotate local offset vector around Y-axis by targetYaw
                 double rad = Math.toRadians(-targetYaw);
                 double dx = offX * Math.cos(rad) - offZ * Math.sin(rad);
                 double dz = offX * Math.sin(rad) + offZ * Math.cos(rad);
                 
                 this.setPos(target.getX() + dx, target.getY() + offY, target.getZ() + dz);
                 
-                // 强制同步朝向，加上一个固定的相对旋转
+                // Force moth orientation to match target plus stored relative rotation
                 this.yRot = targetYaw + this.entityData.get(ATTACHED_ROTATION); 
                 this.yBodyRot = this.yRot;
                 this.yHeadRot = this.yRot;
-                this.xRot = 0; // 暂时水平?
+                this.xRot = 0; // Keep level for now
                 
                 this.clearFire(); 
                 this.setRemainingFireTicks(0);
@@ -1314,14 +1305,14 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                 return;
             }
             
-            // 检查 Stand 是否激活
+            // Check whether the Ashes to Ashes stand is active
             IStandPower.getStandPowerOptional(owner).ifPresent(power -> {
                 if (power.getType() != InitStands.STAND_ASHES_TO_ASHES.getStandType() || !power.isActive()) {
                     this.remove();
                     return;
                 }
                 
-                // 远程操控跟随逻辑
+                // Remote control follow logic
                 if (power.getStandManifestation() instanceof StandEntity) {
                     StandEntity standEntity = (StandEntity) power.getStandManifestation();
                     
@@ -1345,7 +1336,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                         this.navigation.moveTo(navX, navY, navZ, 1.2);
                         
                     } else {
-                        // 跟随本体模式
+                        // Follow owner mode (stand not remote-controlled)
                         isStaying = false;
                         double navX = owner.getX() + (random.nextDouble() - 0.5) * 2.5;
                         double navY = owner.getY() + 1 + random.nextDouble() * 1.5;
@@ -1364,15 +1355,14 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                         }
                     }
                 } else {
-                    // 替身未召唤时的逻辑
-                    // 如果处于未依附状态，飞回玩家身边并消失 (模拟收回)
+                    // Stand not summoned: if not attached, fly back to owner and despawn (simulates recall)
                    if (!isAttached() && !isAttachedToEntity()) {
                         double navX = owner.getX();
                         double navY = owner.getY() + 1;
                         double navZ = owner.getZ();
                         this.navigation.moveTo(navX, navY, navZ, 1.0);
                         
-                        // 靠近玩家时消失
+                        // Despawn when close enough to the owner
                         if (this.distanceToSqr(owner) < 4.0) {
                             this.remove(); // Triggers pool.recallMoth
                         }
@@ -1387,11 +1377,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         if (source == DamageSource.OUT_OF_WORLD) {
             return false;
         }
-        // 免疫掉落伤害 (已移除，以便护盾逻辑能正常处理摔落)
-        /*if (source == DamageSource.FALL) {
-            return true;
-        }*/
-        // 免疫窒息伤害
+        // Immune to suffocation damage
         if (source == DamageSource.IN_WALL) {
             return true;
         }
@@ -1494,7 +1480,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             com.babelmoth.rotp_ata.util.ProtectedBlockRegistry.register((net.minecraft.world.World) this.level, pos);
         }
         
-        // 生成随机偏移 (范围 +/- 0.3, 避免超出方块)
+        // Generate a small random offset (±0.3) to avoid perfectly overlapping on the block face
         float offX = (this.random.nextFloat() - 0.5f) * 0.6f;
         float offY = (this.random.nextFloat() - 0.5f) * 0.6f;
         float rot = this.random.nextFloat() * 360.0f;
@@ -1503,7 +1489,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.entityData.set(ATTACHED_OFFSET_Y, offY);
         this.entityData.set(ATTACHED_ROTATION, rot);
         
-        // 调整位置贴合方块表面
+        // Snap the moth's position onto the target block face using the chosen offset
         double x, y, z;
         
         if (face == Direction.UP) {
@@ -1515,22 +1501,20 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             y = pos.getY() - 0.01;
             z = pos.getZ() + 0.5 + offY;
         } else if (face == Direction.NORTH || face == Direction.SOUTH) {
-            // 北/南面: X轴和Y轴偏移
+            // North / South faces: offset on X and Y axes
             x = pos.getX() + 0.5 + offX;
             y = pos.getY() + 0.5 + offY;
             z = pos.getZ() + 0.5 + face.getStepZ() * 0.55;
         } else {
-            // 东/西面: Z轴和Y轴偏移
+            // East / West faces: offset on Z and Y axes
             x = pos.getX() + 0.5 + face.getStepX() * 0.55;
             y = pos.getY() + 0.5 + offY;
-            z = pos.getZ() + 0.5 + offX; // 使用 offX 作为水平偏移 (Z)
+            z = pos.getZ() + 0.5 + offX; // Use offX as horizontal offset on Z for east/west
         }
         
         this.setPos(x, y, z);
         
-        // 调整朝向 (根据 face)
-        
-        // 调整朝向 (根据 face)
+        // Adjust orientation based on the attachment face
         float yaw = 0;
         float pitch = 0;
         switch (face) {
@@ -1544,7 +1528,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.yRot = yaw;
         this.xRot = pitch;
         
-        // 停止AI和物理运算
+        // Disable AI and physics while attached
         this.setNoAi(true);
     }
     
@@ -1568,9 +1552,8 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public void attachToEntity(Entity target) {
         this.entityData.set(ATTACHED_ENTITY_ID, target.getId());
         
-        // 计算随机偏移 (在 bounding box 表面)
-        //简化模型：圆柱体表面随机点
-        float radius = target.getBbWidth() * 0.5f + 0.1f; // 略微浮出
+        // Random offset on target's bounding box surface (simplified as cylinder)
+        float radius = target.getBbWidth() * 0.5f + 0.1f; // Slightly outside surface
         float height = target.getBbHeight();
         
         float angle = this.random.nextFloat() * 360.0f;
@@ -1582,12 +1565,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         
         this.entityData.set(ATTACHED_OFFSET_X, offX);
         this.entityData.set(ATTACHED_OFFSET_Y, offY);
-        this.entityData.set(ATTACHED_OFFSET_Z, offZ); // 新增 Z 偏移
-        
-        // 随机朝向 (相对目标的角度)
+        this.entityData.set(ATTACHED_OFFSET_Z, offZ);
+
+        // Random relative rotation around target
         this.entityData.set(ATTACHED_ROTATION, this.random.nextFloat() * 360.0f);
 
-        // 如果附着的是主人，则自动开启护盾保护逻辑
+        // If attached to owner, enable shield protection automatically
         LivingEntity owner = getOwner();
         if (owner != null && target.is(owner)) {
             this.entityData.set(SHIELD_TARGET_ID, target.getId());
@@ -1596,34 +1579,30 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.setNoAi(true);
     }
 
-    /** 物品实体 NBT 标记：已被飞蛾领取，避免多只飞蛾重复捡起 */
+    /** NBT tag on item entities: claimed by a moth to avoid multiple moths picking the same item. */
     private static final String ITEM_RETRIEVED_TAG = "ata_retrieved";
 
     /**
-     * 飞蛾开始携带物品：标记物品已被领取，让飞蛾携带物品飞回主人身边
+     * Start carrying an item: mark it as claimed and fly back to owner with it.
      */
     private void startCarryingItem(ItemEntity itemEntity) {
         if (itemEntity == null || itemEntity.getItem().isEmpty()) return;
-        if (itemEntity.getPersistentData().getBoolean(ITEM_RETRIEVED_TAG)) return; // 已被其他飞蛾领取
+        if (itemEntity.getPersistentData().getBoolean(ITEM_RETRIEVED_TAG)) return; // Already claimed by another moth
         LivingEntity owner = getOwner();
         if (owner == null) return;
 
-        // 标记物品已被领取，防止其他飞蛾重复拾取
         itemEntity.getPersistentData().putBoolean(ITEM_RETRIEVED_TAG, true);
-        
-        // 设置飞蛾携带物品
+
         this.entityData.set(CARRIED_ITEM_ID, itemEntity.getId());
-        
-        // 锁定物品实体给飞蛾，防止被其他实体拾取
+
         itemEntity.setOwner(this.getUUID());
         itemEntity.setNoPickUpDelay();
-        
-        // 设置物品实体无重力，让它跟随飞蛾
+
         itemEntity.setNoGravity(true);
     }
-    
+
     /**
-     * 将携带的物品交给主人
+     * Give the carried item to the owner.
      */
     private void giveItemToOwner(ItemEntity itemEntity) {
         if (itemEntity == null || itemEntity.getItem().isEmpty()) return;
@@ -1631,18 +1610,18 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         if (owner == null) return;
 
         ItemStack toGive = itemEntity.getItem().copy();
-        itemEntity.remove(); // 移除物品实体
+        itemEntity.remove();
 
         if (owner instanceof PlayerEntity) {
             PlayerEntity player = (PlayerEntity) owner;
             if (!player.inventory.add(toGive)) {
-                // 背包满或无法放入：掉落在主人脚下
+                // Inventory full or cannot insert: drop at owner's feet
                 ItemEntity drop = new ItemEntity(level, owner.getX(), owner.getY() + 0.5, owner.getZ(), toGive);
                 drop.setNoPickUpDelay();
                 level.addFreshEntity(drop);
             }
         } else {
-            // 非玩家主人：掉落在主人脚下
+            // Non-player owner: drop at owner's feet
             ItemEntity drop = new ItemEntity(level, owner.getX(), owner.getY() + 0.5, owner.getZ(), toGive);
             drop.setNoPickUpDelay();
             level.addFreshEntity(drop);
@@ -1651,7 +1630,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
 
     @Override
     public void remove(boolean keepData) {
-        // 清理携带的物品：如果飞蛾被移除时还携带着物品，将物品掉落在当前位置
+        // If moth is removed while carrying an item, drop the item at current position
         if (!level.isClientSide) {
             int carriedItemId = this.entityData.get(CARRIED_ITEM_ID);
             if (carriedItemId != -1) {
@@ -1659,10 +1638,8 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                 if (carriedItem instanceof ItemEntity) {
                     ItemEntity itemEntity = (ItemEntity) carriedItem;
                     if (!itemEntity.removed && !itemEntity.getItem().isEmpty()) {
-                        // 恢复重力，让物品自然掉落
                         itemEntity.setNoGravity(false);
-                        itemEntity.setOwner((java.util.UUID) null); // 清除锁定
-                        // 物品会自然掉落，不需要额外处理
+                        itemEntity.setOwner((java.util.UUID) null);
                     }
                 }
             }
@@ -1690,8 +1667,8 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         }
         
         if (this.level.isClientSide) {
-            // 如果是正在召回状态下消失，播放消散粒子
             if (this.entityData.get(IS_RECALLING)) {
+                // Play despawn particles when removed while recalling
                 spawnDespawnParticles();
             }
         }

@@ -12,15 +12,15 @@ public class InitParticles {
     public static final DeferredRegister<ParticleType<?>> PARTICLES = DeferredRegister.create(
         ForgeRegistries.PARTICLE_TYPES, AddonMain.MOD_ID);
     
-    // 自定义灰尘粒子 - 不受重力影响，向速度方向移动
+    // Custom ash particle - no gravity, moves in velocity direction
     public static final RegistryObject<BasicParticleType> FOSSIL_ASH = PARTICLES.register(
         "fossil_ash", () -> new BasicParticleType(false));
             
-    // 聚集特效粒子
+    // Gathering effect particle
     public static final RegistryObject<BasicParticleType> FOSSIL_ASH_GATHER = PARTICLES.register(
         "fossil_ash_gather", () -> new BasicParticleType(false));
             
-    // 大号烟雾粒子 (动能爆破-Exfoliating Mode)
+    // Large smoke particle (kinetic detonation - Exfoliating mode)
     public static final RegistryObject<BasicParticleType> ASH_SMOKE_LARGE = PARTICLES.register(
         "ash_smoke_large", () -> new BasicParticleType(false));
 }

@@ -22,8 +22,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 动能护盾（集群护盾）：与动能感应相同的切换式。
- * 未完全浮现时使用会强制完全浮现替身；收回替身时自动关闭护盾。
+ * Kinetic swarm shield: toggle-style action similar to kinetic sensing.
+ * Forces full stand manifestation when used while unsummoned and auto-disables when the stand is recalled.
  */
 public class AshesToAshesSwarmShield extends StandAction {
 
@@ -103,7 +103,7 @@ public class AshesToAshesSwarmShield extends StandAction {
         shieldStateMap.remove(userId);
     }
 
-    /** 关闭护盾并清除飞蛾目标（体力耗尽、飞蛾耗尽或收回替身时调用） */
+    /** Turn off shield and clear non-persistent shield targets (used when stamina/moths are exhausted or stand is unsummoned). */
     public static void turnOffShieldForUser(World world, LivingEntity user) {
         if (user != null) {
             shieldStateMap.remove(user.getUUID());

@@ -24,10 +24,7 @@ public class AddonMain {
     public static final Logger LOGGER = LogManager.getLogger();
 
     public AddonMain() {
-        // 初始化 GeckoLib
         GeckoLib.initialize();
-        
-        // 注册网络包
         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.register();
         
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -43,7 +40,6 @@ public class AddonMain {
         com.babelmoth.rotp_ata.init.InitBlocks.BLOCKS.register(modEventBus);
         com.babelmoth.rotp_ata.init.InitBlocks.TILE_ENTITIES.register(modEventBus);
         
-        // 注册实体属性
         modEventBus.addListener(this::onEntityAttributeCreation);
         modEventBus.addListener(this::setup);
     }

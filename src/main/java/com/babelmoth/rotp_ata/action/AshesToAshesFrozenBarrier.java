@@ -24,7 +24,7 @@ import java.util.*;
 
 public class AshesToAshesFrozenBarrier extends StandAction {
 
-    // Track barriers per player（无数量上限，每个屏障占用 MOTHS_PER_BARRIER 只飞蛾槽位）
+    // Track barrier blocks per player (no count limit, each barrier reserves MOTHS_PER_BARRIER moth slots)
     private static final Map<UUID, LinkedList<BlockPos>> PLAYER_BARRIERS = new HashMap<>();
     public static final int MOTHS_PER_BARRIER = 3;
 
@@ -46,7 +46,7 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         return ActionConditionResult.POSITIVE;
     }
 
-    /** 统计「放出来的飞蛾」时：世界上飞蛾数 + 每个屏障算 3 只（仅用于补位/收回判定） */
+    /** Helper for analytics: summoned moth entities in world + MOTHS_PER_BARRIER per barrier block. */
     public static int getEffectiveWorkingMothCount(LivingEntity owner) {
         if (owner == null) return 0;
         int summoned = MothQueryUtil.getOwnerMoths(owner, AshesToAshesConstants.QUERY_RADIUS_SWARM).size();
@@ -62,7 +62,7 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         BlockPos targetPos = target.getBlockPos();
         if (targetPos == null) return;
 
-        // 放置位置：与普通放方块一致，为点击面的邻格（点击顶面=上方，侧面=该侧，底面=下方）
+        // Place at the block adjacent to the clicked face (top, side, or bottom), same as vanilla placement
         Direction face = target.getType() == ActionTarget.TargetType.BLOCK ? target.getFace() : Direction.UP;
         if (face == null) face = Direction.UP;
         BlockPos placePos = targetPos.relative(face);
@@ -71,7 +71,7 @@ public class AshesToAshesFrozenBarrier extends StandAction {
             return;
         }
 
-        // 分配 3 个槽位给屏障（不召回飞蛾，仅占池子槽位）
+        // Allocate 3 pool slots for this barrier (do not recall any existing moths, just reserve slots)
         final int[] allocatedSlots = new int[MOTHS_PER_BARRIER];
         Arrays.fill(allocatedSlots, -1);
         boolean success = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {

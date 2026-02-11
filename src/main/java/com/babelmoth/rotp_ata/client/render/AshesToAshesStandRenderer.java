@@ -12,9 +12,7 @@ import net.minecraft.client.renderer.entity.EntityRendererManager;
 import net.minecraft.util.ResourceLocation;
 
 /**
- * Renderer for Ashes to Ashes Stand (灰烬归灰烬)
- * 
- * 群体型替身，本体完全不可见
+ * Renderer for Ashes to Ashes Stand; swarm-type, stand body is fully invisible.
  */
 public class AshesToAshesStandRenderer extends StandEntityRenderer<AshesToAshesStandEntity, StandEntityModel<AshesToAshesStandEntity>> {
     
@@ -27,7 +25,6 @@ public class AshesToAshesStandRenderer extends StandEntityRenderer<AshesToAshesS
     @Override
     public void render(AshesToAshesStandEntity entity, float entityYaw, float partialTicks, 
             MatrixStack matrixStack, IRenderTypeBuffer buffer, int packedLight) {
-        // 群体替身不渲染本体，完全透明
-        // 不调用 super.render() 以避免渲染任何东西
+        // Do not render stand body; skip super.render()
     }
 }

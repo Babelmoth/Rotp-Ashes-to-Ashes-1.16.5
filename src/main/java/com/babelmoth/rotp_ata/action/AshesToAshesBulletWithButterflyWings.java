@@ -105,7 +105,7 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
     }
 
     /**
-     * 消耗飞蛾池动能/波纹（优先波纹）。替身完全释放时走 Stand 逻辑，未完全释放时直接用玩家 MothPool，行为一致。
+     * Consume moth pool kinetic/hamon (prefer hamon). When stand is fully out use stand logic; when not, consume from player MothPool directly for consistent behavior.
      */
     private int consumeMothEnergy(LivingEntity user, int amount, IStandPower power) {
         if (amount <= 0) return 0;
@@ -123,7 +123,7 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
             return hamonBefore - hamonAfter;
         }
 
-        // 替身未完全释放：直接从玩家 MothPool 消耗，逻辑与 Stand 一致
+        // Stand not fully manifested: consume from player MothPool directly (same behavior as stand path)
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
             .map(pool -> {
                 int totalHamon = pool.getTotalHamonEnergy();

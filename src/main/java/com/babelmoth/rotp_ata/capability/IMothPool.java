@@ -29,7 +29,7 @@ public interface IMothPool extends INBTSerializable<CompoundNBT> {
     
     // Aggregation
     int getTotalKineticEnergy();
-    /** 未被占用的动能：仅统计未部署（召回）槽位的动能；已放出飞蛾的槽位视为被占用，技能只能使用本返回值。 */
+    /** Kinetic energy available for skills: sums only non-deployed (reserve) slots. Deployed slots (moths out) are treated as occupied and excluded. */
     int getAvailableKinetic();
     int getTotalHamonEnergy();
     
@@ -43,10 +43,11 @@ public interface IMothPool extends INBTSerializable<CompoundNBT> {
     void clearAllDeployed();
     
     // Mass Operations
-    boolean consumeMoths(int amount); // Consumes N moths (Reserve > Active, Empty > Charged)
-    /** 从「未被占用」的槽位（未部署/召回）消耗动能，返回实际消耗量。已放出飞蛾的槽位不会被消耗。 */
+    /** Consume N moths from the pool (Reserve > Active, Empty > Charged). */
+    boolean consumeMoths(int amount);
+    /** Consume kinetic energy from non-deployed (reserve) slots only; returns the actual amount consumed. Deployed slots are never drained. */
     int consumeKinetic(int amount);
-    /** 从未被占用的槽位消耗动能，且排除 excludeSlot；excludeSlot < 0 时等价于 consumeKinetic(amount)。 */
+    /** Consume kinetic from non-deployed slots while excluding excludeSlot; excludeSlot < 0 behaves like consumeKinetic(amount). */
     int consumeKineticExcludingSlot(int amount, int excludeSlot);
     int consumeHamon(int amount);
     

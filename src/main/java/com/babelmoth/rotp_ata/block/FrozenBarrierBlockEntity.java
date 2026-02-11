@@ -63,24 +63,21 @@ public class FrozenBarrierBlockEntity extends TileEntity implements ITickableTil
         return placementTick;
     }
     
-    /**
-     * Set the pool slot indices used by this barrier.
-     */
+    /** Set the pool slot indices used by this barrier. */
     public void setMothSlots(int[] slots) {
         this.mothSlots = slots.clone();
         setChanged();
     }
     
-    /**
-     * Get the pool slot indices used by this barrier.
-     */
+    /** Get the pool slot indices used by this barrier. */
     public int[] getMothSlots() {
         return mothSlots.clone();
     }
     
     /**
-     * 在屏障位置生成三只飞蛾并分配原槽位，飞蛾会飞回主人；不召回槽位（由飞蛾接管）。
-     * 在移除屏障前调用。
+     * Spawn three moth entities at the barrier position and reassign the reserved pool slots to them.
+     * Slots are not recalled; the spawned moths take ownership of those slots and will fly back to the owner.
+     * Should be called immediately before the barrier block is removed.
      */
     public void spawnMothsAtBarrier() {
         World w = level;

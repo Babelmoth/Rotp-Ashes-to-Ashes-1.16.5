@@ -26,7 +26,7 @@ public class InitStands {
     public static final DeferredRegister<StandType<?>> STANDS = DeferredRegister.create(
             (Class<StandType<?>>) ((Class<?>) StandType.class), AddonMain.MOD_ID);
     
-    // ======================================== Ashes to Ashes (灰烬归灰烬) ========================================
+    // ======================================== Ashes to Ashes ========================================
     
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesSwarmRecall> ASHES_TO_ASHES_SWARM_RECALL = ACTIONS.register("ashes_to_ashes_swarm_recall", 
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesSwarmRecall(new StandAction.Builder()
@@ -63,7 +63,7 @@ public class InitStands {
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesMothJet> ASHES_TO_ASHES_MOTH_JET = ACTIONS.register("ashes_to_ashes_moth_jet", 
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesMothJet(new StandAction.Builder()
                     .resolveLevelToUnlock(1)
-                    .cooldown(0, 0, 1.0f))); // 独立技能，可持续喷射，由精神力限制
+                    .cooldown(0, 0, 1.0f))); // Standalone skill, can be held to jet; limited by stamina
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesMothSwarmAttack> ASHES_TO_ASHES_MOTH_SWARM_ATTACK = ACTIONS.register("ashes_to_ashes_moth_swarm_attack", 
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesMothSwarmAttack(
@@ -136,17 +136,16 @@ public class InitStands {
                     .resolveLevelToUnlock(3)
                     .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_REMOVE_BARRIER::get)));
 
-    // Stand type instance - 灰烬归灰烬 (Ashes to Ashes)
-    // Stats: 破坏力 E-C, 速度 C, 射程 A (800m), 持久力 B, 精密度 A
+    // Stand type: Ashes to Ashes. Stats: Power E-C, Speed C, Range A (800m), Durability B, Precision A
     public static final EntityStandRegistryObject<EntityStandType<StandStats>, StandEntityType<AshesToAshesStandEntity>> STAND_ASHES_TO_ASHES = 
             new EntityStandRegistryObject<>("ashes_to_ashes", 
                     STANDS, 
                     () -> new EntityStandType.Builder<StandStats>()
-                    .color(0x8B7355) // 灰褐色 (Ash brown)
+                    .color(0x8B7355) // Ash brown
                     .leftClickHotbar(ASHES_TO_ASHES_MOTH_BITE.get(), ASHES_TO_ASHES_MOTH_SWARM_ATTACK.get(), ASHES_TO_ASHES_ADHESION.get(), ASHES_TO_ASHES_KINETIC_PIERCING.get(), ASHES_TO_ASHES_BULLET_WITH_BUTTERFLY_WINGS.get())
                     .rightClickHotbar(ASHES_TO_ASHES_SWARM_SHIELD.get(), ASHES_TO_ASHES_MOTH_RECALL.get(), ASHES_TO_ASHES_KINETIC_DETONATION.get(), ASHES_TO_ASHES_KINETIC_SENSING.get(), ASHES_TO_ASHES_FROZEN_BARRIER.get())
                     .defaultStats(StandStats.class, new StandStats.Builder()
-                            .tier(5) // 成长性 A
+                            .tier(5) // Growth A
                             .power(1.0) // E-C
                             .speed(10.0) // C
                             .range(50, 100) // A - 800m

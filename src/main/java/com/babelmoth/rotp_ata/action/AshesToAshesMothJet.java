@@ -15,13 +15,13 @@ import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 
 /**
- * 飞蛾喷射：独立技能，可持续喷射并消耗精神力。
- * 喷射出的飞蛾碰到敌人会依附，未碰到则碰到方块或飞行一段距离后消散（不减数回收）。
+ * Moth jet: standalone skill, can be held to keep firing and consumes stamina.
+ * Fired moths attach on entity hit; otherwise they despawn on block hit or after flight time (no pool decrement).
  */
 public class AshesToAshesMothJet extends StandAction {
 
     private static final float STAMINA_COST_PER_MOTH = 35.0f;
-    private static final int TICKS_PER_MOTH = 4; // 每 4 tick 发射一只
+    private static final int TICKS_PER_MOTH = 4; // One moth every 4 ticks
     private static final float JET_SPEED = 2.5f;
 
     public AshesToAshesMothJet(AbstractBuilder<?> builder) {
@@ -52,7 +52,7 @@ public class AshesToAshesMothJet extends StandAction {
 
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
-        // 单次点击也发射一只（可选）
+        // Single click also fires one moth
         if (!world.isClientSide && power.getStamina() >= STAMINA_COST_PER_MOTH) {
             trySpawnJetMoth(world, user, power);
         }

@@ -23,7 +23,7 @@ import net.minecraft.world.World;
 
 public class AshesToAshesMothSwarmAttack extends StandAction {
 
-    /** 先召唤后需延迟执行的扑击（等替身 tick 补充飞蛾后再执行） */
+    /** Pending swarm attack to run after a short delay so the stand can tick and replenish moths. */
     private static final Map<UUID, PendingSwarm> PENDING_SWARM = new ConcurrentHashMap<>();
     private static final int DELAY_TICKS = 3;
 
@@ -36,7 +36,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         }
     }
 
-    /** 由 EventHandler 在 ServerTickEvent 中调用，执行到期的延迟扑击 */
+    /** Called by EventHandler in ServerTickEvent to run due delayed swarm attacks. */
     public static void tickPendingSwarmAttacks(net.minecraft.world.server.ServerWorld world) {
         long now = world.getGameTime();
         PENDING_SWARM.entrySet().removeIf(entry -> {
@@ -64,13 +64,13 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // 与原技能一致：有身边飞蛾可用时允许；若替身未释放也允许（先完全释放，下一 tick 再用身边飞蛾）
+        // Same as original: allow when moths nearby, or when stand not out (perform will summon then use moths next tick)
         List<FossilMothEntity> moths = MothQueryUtil.getMothsForSwarm(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
         if (!moths.isEmpty()) {
             return ActionConditionResult.POSITIVE;
         }
         if (!power.isActive()) {
-            return ActionConditionResult.POSITIVE; // 未释放时允许，perform 里会先召唤再下一 tick 用身边飞蛾
+            return ActionConditionResult.POSITIVE; // Allowed when not out; perform will summon then use moths next tick
         }
         return ActionConditionResult.createNegative(new StringTextComponent("No moths available"));
     }
@@ -81,11 +81,11 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
             net.minecraft.world.server.ServerWorld serverWorld = (net.minecraft.world.server.ServerWorld) world;
             boolean wasInactive = !power.isActive();
 
-            // 若未完全释放替身：先执行与 M 键等价的“完全释放替身”（addToWorld=true 才会真正加入世界并播放召唤），再在下一 tick 根据已释放的替身执行扑击
+            // If stand was not out: fully summon first (addToWorld=true), then run swarm attack after a short delay
             if (wasInactive && power.getType() instanceof com.github.standobyte.jojo.power.impl.stand.type.EntityStandType) {
                 ((com.github.standobyte.jojo.power.impl.stand.type.EntityStandType<?>) power.getType())
                     .summon(user, power, entity -> {}, true, true);
-                // 延迟若干 tick 再执行扑击，让替身先 tick 并补充身边飞蛾，再驱使飞蛾（与先释放再使用技能一致）
+                // Delay a few ticks so the stand ticks and replenishes moths before driving them
                 PENDING_SWARM.put(user.getUUID(), new PendingSwarm(serverWorld, serverWorld.getGameTime() + DELAY_TICKS));
                 return;
             }
@@ -94,7 +94,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         }
     }
 
-    /** 替身已释放时的扑击逻辑（与原技能一致：只调用身边飞蛾，不单独生成） */
+    /** Run swarm attack when stand is already out (uses only nearby moths, no extra spawns). */
     private void runSwarmAttack(net.minecraft.world.server.ServerWorld world, LivingEntity user, IStandPower power) {
         runSwarmAttackStatic(world, user, power);
     }
@@ -103,7 +103,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         double range = AshesToAshesConstants.QUERY_RADIUS_SWARM;
         List<FossilMothEntity> moths = MothQueryUtil.getMothsForSwarm(user, range);
         if (moths.isEmpty()) {
-            return; // 身边没有飞蛾则不扑击，和原技能一致
+            return; // No moths nearby: do not attack (same as original skill)
         }
 
         Entity viewEntity = user;

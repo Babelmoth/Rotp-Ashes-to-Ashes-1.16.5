@@ -57,7 +57,7 @@ public class AshesToAshesEventHandler {
         }
     }
 
-    // 大跳仅使用 RotP 本体的 shift+空格 跳跃逻辑（AshesToAshesStandEntity.getLeapStrength），不再在普通跳跃时触发爆炸音效大跳
+    // Big leap uses only RotP's shift+space logic (AshesToAshesStandEntity.getLeapStrength); no explosion sound on normal jump
 
     @SubscribeEvent
     public static void onWorldTick(TickEvent.WorldTickEvent event) {
@@ -131,7 +131,7 @@ public class AshesToAshesEventHandler {
                 clearModifiers(entity);
             }
         } else {
-            // 依附时对敌人运动的影响：上限提高，5 只以上即可完全定身（MOVEMENT_SPEED 修正 -1.0 = 无法移动）
+            // Movement debuff on enemies: cap at -1.0 (5+ moths = immobile)
             double speedDebuff = Math.max(-1.0, -0.20 * validMothCount);
             updateDebuff(entity, Attributes.MOVEMENT_SPEED, SPEED_MODIFIER_UUID, "Moth Speed Debuff", speedDebuff, AttributeModifier.Operation.MULTIPLY_TOTAL);
             updateDebuff(entity, Attributes.ATTACK_DAMAGE, ATTACK_DAMAGE_MODIFIER_UUID, "Moth Damage Buff", -1.0 * validMothCount, AttributeModifier.Operation.ADDITION);
@@ -144,10 +144,10 @@ public class AshesToAshesEventHandler {
                 }
             }
 
-            // 运动动能吸收：每 20 tick 有总量上限，平均分配到有空间的飞蛾；吸满的飞蛾自动脱落飞回
+            // Kinetic absorption from motion: per-entity budget every 20 ticks, distributed to moths with room; full moths recall
             double speedSqr = entity.getDeltaMovement().lengthSqr();
             if (speedSqr > 0.0001 && entity.tickCount % 20 == 0) {
-                final int kineticBudgetPerPeriod = 2; // 每 20 tick 整实体的吸收上限
+                final int kineticBudgetPerPeriod = 2; // Max absorption per entity per 20 ticks
                 java.util.List<FossilMothEntity> withRoom = new java.util.ArrayList<>();
                 for (FossilMothEntity moth : attachedMoths) {
                     if (moth.getKineticEnergy() < moth.getMaxEnergy()) withRoom.add(moth);
@@ -162,7 +162,7 @@ public class AshesToAshesEventHandler {
                         moth.recall();
                     }
                 }
-                // 吸满动能的飞蛾（含其他来源）统一脱落飞回
+                // Any moth that reached max kinetic (from any source) recalls
                 java.util.List<FossilMothEntity> attachedAgain = MothQueryUtil.getAttachedMoths(entity, AshesToAshesConstants.QUERY_RADIUS_ATTACHMENT);
                 for (FossilMothEntity moth : new java.util.ArrayList<>(attachedAgain)) {
                     if (moth.getKineticEnergy() >= moth.getMaxEnergy() && moth.isAlive()) {
@@ -410,7 +410,7 @@ public class AshesToAshesEventHandler {
                     moth.hurt(DamageSource.GENERIC, damagePerMoth);
                 }
             }
-            // 吸满动能的飞蛾自动脱落飞回
+            // Moths that reached max kinetic recall
             for (FossilMothEntity moth : new java.util.ArrayList<>(selfAdheredMoths)) {
                 if (moth.getKineticEnergy() >= moth.getMaxEnergy() && moth.isAlive()) {
                     moth.recall();

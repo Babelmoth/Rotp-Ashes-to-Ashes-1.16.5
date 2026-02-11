@@ -40,7 +40,7 @@ public class MothPool implements IMothPool {
 
     @Override
     public void setTotalMoths(int count) {
-        // Not directly settable
+        // Intentionally no-op: total moth count is derived from occupiedSlots.
     }
 
     @Override
@@ -100,7 +100,8 @@ public class MothPool implements IMothPool {
     
     @Override
     public int allocateSlot() {
-        return allocateSlotWithPriority(true); // Default behavior
+        // Default allocation strategy prefers empty, non-deployed slots, then any non-deployed slot, then a new slot.
+        return allocateSlotWithPriority(true);
     }
 
     @Override
@@ -180,7 +181,7 @@ public class MothPool implements IMothPool {
         
         int consumed = 0;
         
-        // Priority 1: Reserve & Empty
+        // Priority 1: Reserved & Empty (not deployed, zero kinetic)
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (!deployedSlots.get(i) && kineticPool[i] == 0) {
                 killMoth(i);
@@ -189,7 +190,7 @@ public class MothPool implements IMothPool {
         }
         if (consumed >= amount) return true;
         
-        // Priority 2: Reserve & Charged
+        // Priority 2: Reserved & Charged (not deployed, has kinetic)
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (!deployedSlots.get(i)) {
                 killMoth(i);
@@ -198,7 +199,7 @@ public class MothPool implements IMothPool {
         }
         if (consumed >= amount) return true;
         
-        // Priority 3: Active & Empty
+        // Priority 3: Active & Empty (deployed, zero kinetic)
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (deployedSlots.get(i) && kineticPool[i] == 0) {
                 killMoth(i);
@@ -207,7 +208,7 @@ public class MothPool implements IMothPool {
         }
         if (consumed >= amount) return true;
         
-        // Priority 4: Active & Charged
+        // Priority 4: Active & Charged (deployed, has kinetic)
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (deployedSlots.get(i)) {
                 killMoth(i);
@@ -225,7 +226,8 @@ public class MothPool implements IMothPool {
             int richestIndex = -1;
             int maxEnergy = 0;
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
-                if (deployedSlots.get(i)) continue; // 已放出飞蛾的槽位视为被占用，不参与消耗
+                // Skip deployed slots: kinetic on active moths is treated as owned by the moth and not part of reserve.
+                if (deployedSlots.get(i)) continue;
                 if (kineticPool[i] > maxEnergy) {
                     maxEnergy = kineticPool[i];
                     richestIndex = i;
@@ -247,7 +249,8 @@ public class MothPool implements IMothPool {
             int richestIndex = -1;
             int maxEnergy = 0;
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
-                if (deployedSlots.get(i) || i == excludeSlot) continue; // 被占用槽位与排除槽位均不消耗
+                // Skip deployed slots and the explicitly excluded slot.
+                if (deployedSlots.get(i) || i == excludeSlot) continue;
                 if (kineticPool[i] > maxEnergy) {
                     maxEnergy = kineticPool[i];
                     richestIndex = i;

@@ -75,7 +75,6 @@ public class AshesToAshesStandEntity extends StandEntity {
     public void tick() {
         super.tick();
         
-        // 在服务端首次tick时生成化石蛾
         if (!level.isClientSide) {
             LivingEntity user = getUser();
             if (user != null) {
@@ -96,17 +95,18 @@ public class AshesToAshesStandEntity extends StandEntity {
                 }
             }
             
+            // On first server-side tick, spawn the base swarm of fossil moths
             if (!mothsSpawned) {
                 spawnFossilMoths();
                 mothsSpawned = true;
             }
 
-            // 实时补位逻辑: 每秒检查一次
+            // Swarm maintenance: replenish & trim once per second
             replenishTimer++;
             if (replenishTimer >= 20) {
                 replenishTimer = 0;
                 replenishMoths();
-                // 身边超过 DEFAULT_MOTH_COUNT 只的飞蛾自动收回（优先收回距离最远的）
+                // If there are more than DEFAULT_MOTH_COUNT free moths nearby, recall the furthest ones first
                 recallExcessMoths();
             }
 
@@ -123,7 +123,6 @@ public class AshesToAshesStandEntity extends StandEntity {
         }
     }
 
-    /** 身边空闲飞蛾超过上限时，优先收回距离最远的；屏障不参与此判定 */
     private void recallExcessMoths() {
         LivingEntity user = getUser();
         if (user == null) return;
@@ -368,7 +367,6 @@ public class AshesToAshesStandEntity extends StandEntity {
 
     @Override
     protected double leapBaseStrength() {
-        // Great Jump is now handled by Active Consumption in AshesToAshesEventHandler.onLivingJump
         return super.leapBaseStrength();
     }
 

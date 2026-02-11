@@ -23,15 +23,12 @@ public class ClientInit {
     
     @SubscribeEvent
     public static void onFMLClientSetup(FMLClientSetupEvent event) {
-        // 替身实体渲染器
         RenderingRegistry.registerEntityRenderingHandler(
                 InitStands.STAND_ASHES_TO_ASHES.getEntityType(), AshesToAshesStandRenderer::new);
         
-        // 化石蛾实体渲染器 (GeckoLib)
         RenderingRegistry.registerEntityRenderingHandler(
                 InitEntities.FOSSIL_MOTH.get(), FossilMothRenderer::new);
 
-        // 剥落爆破烟雾云渲染器
         RenderingRegistry.registerEntityRenderingHandler(
                 InitEntities.EXFOLIATING_ASH_CLOUD.get(), net.minecraft.client.renderer.entity.AreaEffectCloudRenderer::new);
                 
@@ -42,7 +39,6 @@ public class ClientInit {
             MarkerRenderer.Handler.addRenderer(new MothExfoliatingDetonationMarker(Minecraft.getInstance()));
         });
 
-        // 冻结屏障方块实体渲染器
         net.minecraftforge.fml.client.registry.ClientRegistry.bindTileEntityRenderer(
                 com.babelmoth.rotp_ata.init.InitBlocks.FROZEN_BARRIER_TILE.get(),
                 com.babelmoth.rotp_ata.client.render.FrozenBarrierRenderer::new);

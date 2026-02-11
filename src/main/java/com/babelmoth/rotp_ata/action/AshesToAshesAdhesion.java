@@ -25,12 +25,12 @@ public class AshesToAshesAdhesion extends StandAction {
     
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // 需要目标是方块或实体
+        // Require a block or entity target
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             return ActionConditionResult.POSITIVE;
         }
         if (target.getType() == ActionTarget.TargetType.ENTITY) {
-            // 禁止依附到化石蛾自己身上
+            // Do not attach to fossil moths
             if (target.getEntity() instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
                 return ActionConditionResult.NEGATIVE;
             }
@@ -43,7 +43,7 @@ public class AshesToAshesAdhesion extends StandAction {
     @Override
     protected void perform(net.minecraft.world.World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // 1. 寻找空闲蛾子 (Prioritize Low Energy)
+            // 1. Find free moths (prioritize low energy)
             java.util.List<com.babelmoth.rotp_ata.entity.FossilMothEntity> freeMoths = com.github.standobyte.jojo.util.mc.MCUtil.entitiesAround(
                 com.babelmoth.rotp_ata.entity.FossilMothEntity.class, user, 64, false, 
                 moth -> moth.isAlive() && moth.getOwner() == user && !moth.isAttached() && !moth.isAttachedToEntity());
@@ -57,19 +57,19 @@ public class AshesToAshesAdhesion extends StandAction {
             if (!freeMoths.isEmpty()) {
                 activeMoth = freeMoths.get(0);
             } else {
-                // 2. 如果没有空闲蛾子，检查仓库容量
+                // 2. If no free moths, check pool capacity
                 boolean canSpawn = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
                     .map(pool -> pool.getTotalMoths() < com.babelmoth.rotp_ata.capability.IMothPool.MAX_MOTHS)
                     .orElse(false);
                 
                 if (canSpawn) {
-                    // 生成新蛾子
+                    // Spawn a new moth
                     activeMoth = new com.babelmoth.rotp_ata.entity.FossilMothEntity(world, user);
                     isNewMoth = true;
                 }
             }
             
-            // 3. 执行依附
+            // 3. Perform attachment
             if (activeMoth != null) {
             if (target.getType() == ActionTarget.TargetType.BLOCK) {
                     activeMoth.attachTo(target.getBlockPos(), target.getFace());
@@ -77,7 +77,7 @@ public class AshesToAshesAdhesion extends StandAction {
                     activeMoth.attachToEntity(target.getEntity());
                 }
                 
-                // 如果是新生成的蛾子，现在加入世界（此时位置已被 attachTo 设置正确）
+                // If this is a newly spawned moth, add to world (position already set by attachTo)
                 if (isNewMoth) {
                     world.addFreshEntity(activeMoth);
                 }

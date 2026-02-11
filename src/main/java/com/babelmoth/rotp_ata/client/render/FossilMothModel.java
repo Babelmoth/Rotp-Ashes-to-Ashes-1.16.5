@@ -7,9 +7,7 @@ import net.minecraft.util.ResourceLocation;
 import software.bernie.geckolib3.model.AnimatedGeoModel;
 
 /**
- * FossilMothModel - GeckoLib 化石蛾模型
- * 
- * 加载 ashes_to_ashes.geo.json 和 ashes_to_ashes.animation.json
+ * GeckoLib fossil moth model; loads ashes_to_ashes.geo.json and ashes_to_ashes.animation.json.
  */
 public class FossilMothModel extends AnimatedGeoModel<FossilMothEntity> {
     

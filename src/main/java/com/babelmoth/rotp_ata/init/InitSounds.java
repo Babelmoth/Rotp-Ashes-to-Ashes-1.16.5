@@ -16,7 +16,7 @@ public class InitSounds {
     public static final DeferredRegister<SoundEvent> SOUNDS = DeferredRegister.create(
             ForgeRegistries.SOUND_EVENTS, AddonMain.MOD_ID);
     
-    // ======================================== Ashes to Ashes (灰烬归灰烬) ========================================
+    // ======================================== Ashes to Ashes ========================================
     
     public static final RegistryObject<SoundEvent> ASHES_TO_ASHES_SUMMON_VOICELINE = SOUNDS.register("ashes_to_ashes_summon_voiceline", 
             () -> new SoundEvent(new ResourceLocation(AddonMain.MOD_ID, "ashes_to_ashes_summon_voiceline")));

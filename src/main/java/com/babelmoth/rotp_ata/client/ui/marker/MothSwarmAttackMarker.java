@@ -88,18 +88,17 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
             maxVec, 
             aabb, 
             entity -> {
-                // 排除观察者和自己
+                // Exclude spectators and self
                 if (entity.isSpectator() || entity == finalPlayer || entity == finalViewEntity || entity instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
                     return false;
                 }
-                // 检查是否为生物实体
+                // Living entities: must be pickable and alive
                 if (entity instanceof LivingEntity) {
                     return entity.isPickable() && ((LivingEntity) entity).isAlive();
                 }
-                // 检查是否为物品实体
                 if (entity instanceof ItemEntity) {
                     ItemEntity itemEntity = (ItemEntity) entity;
-                    // 确保物品实体有效：未移除、物品不为空、未被其他飞蛾领取
+                    // Valid item: not removed, non-empty stack, not already claimed by a moth
                     return !itemEntity.removed 
                         && !itemEntity.getItem().isEmpty()
                         && !itemEntity.getPersistentData().getBoolean("ata_retrieved");

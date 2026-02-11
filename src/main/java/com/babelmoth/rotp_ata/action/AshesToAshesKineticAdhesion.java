@@ -16,8 +16,8 @@ import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
 /**
- * 动能依附：与普通依附类似，但会优先使用全局动能为放置/选中的飞蛾充能。
- * 作为依附的 Shift 变体，拥有独立图标和名称。
+ * Kinetic adhesion: like normal adhesion but charges the placed/selected moth from the pool's available kinetic.
+ * Shift variant of adhesion with its own icon and name.
  */
 public class AshesToAshesKineticAdhesion extends StandAction {
 
@@ -32,12 +32,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // 需要实际目标：方块或实体
+        // Require a block or entity target
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             return ActionConditionResult.POSITIVE;
         }
         if (target.getType() == ActionTarget.TargetType.ENTITY) {
-            // 禁止依附到化石蛾自己身上
+            // Do not attach to fossil moths
             if (target.getEntity() instanceof FossilMothEntity) {
                 return ActionConditionResult.NEGATIVE;
             }
@@ -55,12 +55,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
 
         IMothPool pool = poolOpt.get();
 
-        // 1. 只选用「未满动能」的飞蛾（有充能空间）；优先选动能多的
+        // 1. Use only moths with room for more kinetic; prefer those with more energy
         java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, 64.0);
         freeMoths.removeIf(m -> {
             int idx = m.getMothPoolIndex();
             int current = (idx >= 0 && pool.isSlotActive(idx)) ? pool.getMothKinetic(idx) : m.getKineticEnergy();
-            return current >= m.getMaxEnergy(); // 已满则不可用于动能依附
+            return current >= m.getMaxEnergy(); // Full moths are not used for kinetic adhesion
         });
         freeMoths.sort(java.util.Comparator.<FossilMothEntity>comparingInt(m -> {
             int idx = m.getMothPoolIndex();
@@ -73,8 +73,7 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         if (!freeMoths.isEmpty()) {
             activeMoth = freeMoths.get(0);
         } else {
-            // 新蛾子：必须先分配槽位再充能，否则入世界后 allocate 可能拿到「未部署」槽位，
-            // 该槽位未被 consume 仍含动能，syncToPool 用 taken 覆盖会凭空增加总动能
+            // New moth: allocate slot before charging so we don't reuse an undrained slot and create extra kinetic on sync
             if (pool.getTotalMoths() < IMothPool.MAX_MOTHS) {
                 int slot = pool.allocateSlotWithPriority(true);
                 if (slot < 0) return;
@@ -89,15 +88,15 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         }
 
         int excludeSlot = activeMoth.getMothPoolIndex();
-        // 有槽位时一律以池中该槽位为准，保证与 consumeExcluding 一致
+        // When slot is assigned, use pool value as source of truth for consistency with consumeExcluding
         int currentEnergy = (excludeSlot >= 0 && pool.isSlotActive(excludeSlot))
             ? pool.getMothKinetic(excludeSlot)
             : activeMoth.getKineticEnergy();
         int roomLocal = Math.max(0, activeMoth.getMaxEnergy() - currentEnergy);
-        // 只检测未被占用的动能（未部署/召回槽位）；已放出飞蛾的槽位视为被占用，不参与充能
+        // Only count available (non-deployed) kinetic; deployed moths are occupied and not used for charging
         int available = pool.getAvailableKinetic();
 
-        // 2. 充能前检查：未被占用的动能不足则提示并取消放置
+        // 2. Pre-charge check: insufficient available kinetic -> message and cancel placement
         if (roomLocal > 0 && available < roomLocal) {
             if (user instanceof ServerPlayerEntity) {
                 ((ServerPlayerEntity) user).displayClientMessage(
@@ -109,14 +108,14 @@ public class AshesToAshesKineticAdhesion extends StandAction {
             return;
         }
 
-        // 3. 依附
+        // 3. Attach
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             activeMoth.attachTo(target.getBlockPos(), target.getFace());
         } else if (target.getType() == ActionTarget.TargetType.ENTITY) {
             activeMoth.attachToEntity(target.getEntity());
         }
 
-        // 4. 只从「其他槽位」消耗动能并充给当前飞蛾；充能后立即回写池，保证总量一致
+        // 4. Consume kinetic from other slots and charge this moth; write back to pool immediately
         int takeLimit = Math.min(roomLocal, available);
         if (takeLimit > 0 && excludeSlot >= 0) {
             int taken = pool.consumeKineticExcludingSlot(takeLimit, excludeSlot);
