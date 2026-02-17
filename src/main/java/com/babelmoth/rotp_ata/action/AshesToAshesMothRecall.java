@@ -17,7 +17,7 @@ import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 
-public class AshesToAshesMothRecall extends StandAction {
+public class  AshesToAshesMothRecall extends StandAction {
 
     public AshesToAshesMothRecall(AbstractBuilder<?> builder) {
         super(builder);

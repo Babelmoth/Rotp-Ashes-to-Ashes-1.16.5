@@ -24,9 +24,7 @@ public class InitSounds {
     public static final Supplier<SoundEvent> ASHES_TO_ASHES_SUMMON_SOUND = ModSounds.STAND_SUMMON_DEFAULT;
     
     public static final Supplier<SoundEvent> ASHES_TO_ASHES_UNSUMMON_SOUND = ModSounds.STAND_UNSUMMON_DEFAULT;
-    
-    // Removed punch sounds as no attacks exist
-    
+
     // OST
     public static final OstSoundList ASHES_TO_ASHES_OST = new OstSoundList(
             new ResourceLocation(AddonMain.MOD_ID, "ashes_to_ashes_ost"), SOUNDS);

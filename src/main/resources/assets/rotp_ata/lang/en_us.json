@@ -1,4 +1,5 @@
 {
+  "jojo.story_part.original_stands": "Original Stands",
   "stand.rotp_ata.ashes_to_ashes": "Ashes to Ashes",
   "entity.rotp_ata.fossil_moth": "Fossil Moth",
   "action.rotp_ata.ashes_to_ashes_adhesion": "Adhesion",
@@ -17,7 +18,22 @@
   "action.rotp_ata.ashes_to_ashes_kinetic_sensing": "Kinetic Sensing",
   "action.rotp_ata.ashes_to_ashes_frozen_barrier": "Frozen Barrier",
   "action.rotp_ata.ashes_to_ashes_remove_barrier": "Remove Barrier",
+
+  "stand.rotp_ata.thela_hun_ginjeet": "Thela Hun Ginjeet",
+  "action.rotp_ata.thela_hun_ginjeet_swift_thrust": "Swift Thrust",
+  "action.rotp_ata.thela_hun_ginjeet_riptide_thrust": "Riptide Thrust",
+  "action.rotp_ata.thela_hun_ginjeet_sweep": "Spear Sweep",
+  "action.rotp_ata.thela_hun_ginjeet_block": "Block",
+  "action.rotp_ata.thela_hun_ginjeet_recall": "Recall",
+  "action.rotp_ata.thela_hun_ginjeet_grab_pull": "Grab Pull",
+  "action.rotp_ata.thela_hun_ginjeet_grab_dash": "Grapple Dash",
+  "action.rotp_ata.thela_hun_ginjeet_thorn_burst": "Thorn Burst",
+  "item.rotp_ata.thela_hun_ginjeet_spear": "Thela Hun Ginjeet",
+
   "block.rotp_ata.frozen_barrier": "Frozen Barrier",
   "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action.",
-  "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place."
+  "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place.",
+
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "Development S",
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "Enchant your Stand to over unleash its power"
 }

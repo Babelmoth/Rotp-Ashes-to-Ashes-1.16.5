@@ -110,7 +110,11 @@ public class AshesToAshesStandEntity extends StandEntity {
                 recallExcessMoths();
             }
 
-            if (poolDataChanged || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0) {
+            // Sync pool to client: immediately on first tick (so HUD has data as soon as stand is out), then periodically
+            boolean shouldSync = poolDataChanged
+                || this.tickCount <= 1
+                || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0;
+            if (shouldSync) {
                 user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
                     if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
                         pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
@@ -214,10 +218,6 @@ public class AshesToAshesStandEntity extends StandEntity {
         }
         
         // 2. Consume Resources
-        // Stamina drain handled by Event? Or here?
-        // EventHandler handles *Self-Adhesion* stamina.
-        // Shield orbiters might not be covered if not attached.
-        // Let's drain generic stamina here.
         if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity)user).isCreative()) {
              com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity)user).ifPresent(power -> {
                  power.consumeStamina(0.5F); // Moderate active drain per tick
@@ -243,9 +243,6 @@ public class AshesToAshesStandEntity extends StandEntity {
         }
     }
 
-    
-    // ... deploy/recall methods ...
-
     @Override
     public void onRemovedFromWorld() {
         super.onRemovedFromWorld();
@@ -261,8 +258,6 @@ public class AshesToAshesStandEntity extends StandEntity {
             }
         }
     }
-    
-    // ... deploy/recall methods ...
     
     /**
      * Result of energy consumption showing Hamon vs Kinetic breakdown.

@@ -23,4 +23,5 @@ public class InitParticles {
     // Large smoke particle (kinetic detonation - Exfoliating mode)
     public static final RegistryObject<BasicParticleType> ASH_SMOKE_LARGE = PARTICLES.register(
         "ash_smoke_large", () -> new BasicParticleType(false));
+
 }

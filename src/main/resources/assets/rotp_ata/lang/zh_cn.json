@@ -1,4 +1,5 @@
 {
+  "jojo.story_part.original_stands": "原创替身",
   "stand.rotp_ata.ashes_to_ashes": "「尘归于土」",
   "entity.rotp_ata.fossil_moth": "化石蛾",
   "action.rotp_ata.ashes_to_ashes_adhesion": "依附",
@@ -17,9 +18,24 @@
   "action.rotp_ata.ashes_to_ashes_kinetic_sensing": "动能感应",
   "action.rotp_ata.ashes_to_ashes_frozen_barrier": "冻结屏障",
   "action.rotp_ata.ashes_to_ashes_remove_barrier": "移除屏障",
+
+  "stand.rotp_ata.thela_hun_ginjeet": "「赛拉·杭·金吉」",
+  "action.rotp_ata.thela_hun_ginjeet_swift_thrust": "迅捷突刺",
+  "action.rotp_ata.thela_hun_ginjeet_riptide_thrust": "激流突刺",
+  "action.rotp_ata.thela_hun_ginjeet_sweep": "长矛挥打",
+  "action.rotp_ata.thela_hun_ginjeet_block": "防御",
+  "action.rotp_ata.thela_hun_ginjeet_recall": "召回",
+  "action.rotp_ata.thela_hun_ginjeet_grab_pull": "生物抓取",
+  "action.rotp_ata.thela_hun_ginjeet_grab_dash": "钩索突进",
+  "action.rotp_ata.thela_hun_ginjeet_thorn_burst": "棘刺爆裂",
+
+  "item.rotp_ata.thela_hun_ginjeet_spear": "赛拉·杭·金吉",
   "block.rotp_ata.frozen_barrier": "冻结屏障",
   "jojo.ata.message.requires_momentum": "您的动能储备不足以支持您这么做",
   "jojo.ata.message.requires_stand_summoned": "需要召唤替身",
   "jojo.ata.message.action_condition.ground_only": "需要对准方块使用",
-  "jojo.ata.message.kinetic_insufficient": "动能不足，无法放置"
+  "jojo.ata.message.kinetic_insufficient": "动能不足，无法放置",
+
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "成长性S",
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "通过为自己的替身附魔来超常发挥其力量"
 }

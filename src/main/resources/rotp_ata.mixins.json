@@ -5,7 +5,10 @@
     "compatibilityLevel": "JAVA_8",
     "refmap": "rotp_ata.refmap.json",
     "mixins": [
-        "PressurePlateBlockMixin"
+        "PressurePlateBlockMixin",
+        "PlayerEntityMixin"
+    ],
+    "client": [
     ],
     "injectors": {
         "defaultRequire": 1

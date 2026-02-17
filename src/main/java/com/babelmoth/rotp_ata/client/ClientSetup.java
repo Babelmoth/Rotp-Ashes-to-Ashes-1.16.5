@@ -29,5 +29,6 @@ public class ClientSetup {
             InitParticles.ASH_SMOKE_LARGE.get(),
             sprite -> new com.babelmoth.rotp_ata.client.render.particle.AshSmokeLargeParticle.Factory(sprite) 
         );
+
     }
 }

@@ -417,7 +417,6 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     }
     
     public int getMaxEnergy() {
-        // TODO: Access resolve level from owner to switch between 100 and 200
         return MAX_ENERGY_BASE;
     }
     
@@ -1271,26 +1270,10 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                             livingTarget.addEffect(new EffectInstance(Effects.DIG_SLOWDOWN, 30, amplifier, true, false));
                         }
                          if (mothCount >= 10 && livingTarget instanceof PlayerEntity) {
-                             // Disable items? (Mining Fatigue high level prevents mining)
-                             // Weakness?
                              livingTarget.addEffect(new EffectInstance(Effects.WEAKNESS, 30, 1, true, false));
-                             // "Disable item use" is hard without event.
                         }
-                        
-                        // Absorb Hamon
-                        // Absorb Hamon (Disabled until correct API found)
-                        /*
-                        INonStandPower.getNonStandPowerOptional(livingTarget).ifPresent(power -> {
-                             if (power.getType() == ModHamon.HAMON.get() && power.getEnergy() > 0) { // Check specific type?
-                                 power.consumeEnergy(1.0f); // Drain
-                                 setHamonEnergy(getHamonEnergy() + 1);
-                             }
-                        });
-                        */
                     }
                 }
-
-
                 
             } else {
                 if (!level.isClientSide) detach();

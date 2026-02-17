@@ -24,6 +24,25 @@ public class AshesToAshesPacketHandler {
             .decoder(MothPoolSyncPacket::decode)
             .consumer(MothPoolSyncPacket::handle)
             .add();
+
+        CHANNEL.messageBuilder(SpearStuckSyncPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(SpearStuckSyncPacket::encode)
+            .decoder(SpearStuckSyncPacket::decode)
+            .consumer(SpearStuckSyncPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(SpearMarkSyncPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(SpearMarkSyncPacket::encode)
+            .decoder(SpearMarkSyncPacket::decode)
+            .consumer(SpearMarkSyncPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(SpearThornSyncPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(SpearThornSyncPacket::encode)
+            .decoder(SpearThornSyncPacket::decode)
+            .consumer(SpearThornSyncPacket::handle)
+            .add();
+
     }
 
     public static void sendToClient(Object packet, ServerPlayerEntity player) {

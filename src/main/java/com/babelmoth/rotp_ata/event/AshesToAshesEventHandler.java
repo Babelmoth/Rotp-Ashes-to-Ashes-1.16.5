@@ -54,10 +54,41 @@ public class AshesToAshesEventHandler {
                 new net.minecraft.util.ResourceLocation(AddonMain.MOD_ID, "moth_pool"), 
                 new com.babelmoth.rotp_ata.capability.MothPoolProvider()
             );
+            event.addCapability(
+                new net.minecraft.util.ResourceLocation(AddonMain.MOD_ID, "spear_stuck"),
+                new com.babelmoth.rotp_ata.capability.SpearStuckProvider()
+            );
+            event.addCapability(
+                new net.minecraft.util.ResourceLocation(AddonMain.MOD_ID, "spear_thorn"),
+                new com.babelmoth.rotp_ata.capability.SpearThornProvider()
+            );
         }
     }
 
-    // Big leap uses only RotP's shift+space logic (AshesToAshesStandEntity.getLeapStrength); no explosion sound on normal jump
+    @SubscribeEvent
+    public static void onStartTracking(PlayerEvent.StartTracking event) {
+        if (event.getPlayer() instanceof net.minecraft.entity.player.ServerPlayerEntity && event.getTarget() instanceof LivingEntity) {
+            LivingEntity target = (LivingEntity) event.getTarget();
+            net.minecraft.entity.player.ServerPlayerEntity player = (net.minecraft.entity.player.ServerPlayerEntity) event.getPlayer();
+            target.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(cap -> {
+                int count = cap.getSpearCount();
+                if (count > 0) {
+                    com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                            net.minecraftforge.fml.network.PacketDistributor.PLAYER.with(() -> player),
+                            new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(target.getId(), count));
+                }
+            });
+            target.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                if (cap.hasSpear()) {
+                    com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                            net.minecraftforge.fml.network.PacketDistributor.PLAYER.with(() -> player),
+                            new com.babelmoth.rotp_ata.networking.SpearThornSyncPacket(
+                                    target.getId(), cap.getThornCount(), cap.getDamageDealt(),
+                                    cap.getDetachThreshold(), cap.hasSpear()));
+                }
+            });
+        }
+    }
 
     @SubscribeEvent
     public static void onWorldTick(TickEvent.WorldTickEvent event) {
@@ -604,4 +635,475 @@ public class AshesToAshesEventHandler {
             }
         }
     }
+
+    // ======================================== 长矛荆棘系统 ========================================
+
+    private static final UUID THORN_SLOW_UUID = UUID.fromString("d1e2f3a4-b5c6-7890-abcd-ef1234567890");
+    private static final UUID THORN_WEAK_UUID = UUID.fromString("d1e2f3a4-b5c6-7890-abcd-ef1234567891");
+    // 高荆棘层数阈值：超过此值后攻击/移动会扣血
+    private static final int THORN_BLEED_THRESHOLD = 30;
+    // 递归保护：防止荆棘扣血触发自身
+    private static final ThreadLocal<Boolean> IS_PROCESSING_THORN = ThreadLocal.withInitial(() -> false);
+
+    /**
+     * 禁疗效果：被长矛插入的敌人受到的治疗被取消，转化为荆棘层数（1HP = 1层）
+     */
+    @SubscribeEvent(priority = EventPriority.HIGHEST)
+    public static void onLivingHeal(net.minecraftforge.event.entity.living.LivingHealEvent event) {
+        LivingEntity entity = event.getEntityLiving();
+        if (entity.level.isClientSide) return;
+
+        entity.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+            if (!cap.hasSpear()) return;
+
+            float healAmount = event.getAmount();
+            if (healAmount <= 0) return;
+
+            // 取消治疗
+            event.setCanceled(true);
+
+            // 治疗量转化为荆棘层数（1HP = 1层）
+            int thornToAdd = (int) Math.ceil(healAmount);
+            cap.addThorns(thornToAdd);
+
+            // 荆棘增加时造成等量伤害
+            if (!IS_PROCESSING_THORN.get()) {
+                IS_PROCESSING_THORN.set(true);
+                try {
+                    entity.hurt(DamageSource.GENERIC, thornToAdd);
+                } finally {
+                    IS_PROCESSING_THORN.set(false);
+                }
+            }
+
+            // 荆棘增加时触发 RotP 流血粒子效果
+            com.github.standobyte.jojo.potion.BleedingEffect.splashBlood(
+                    entity.level, entity.getBoundingBox().getCenter(),
+                    1.0 + thornToAdd * 0.2, thornToAdd,
+                    java.util.OptionalInt.of(Math.min(thornToAdd / 2, 3)),
+                    java.util.Optional.of(entity));
+
+            // 荆棘层数同步到 stuck 数（1:1）
+            syncThornToStuck(entity, cap);
+
+            // 同步荆棘数据到客户端
+            syncThornDataFromEvent(entity, cap);
+        });
+    }
+
+    /**
+     * 荆棘 debuff 逻辑：在 LivingUpdateEvent 中每 tick 检查
+     * - 缓慢、挖掘疲劳、虚弱（强度随荆棘层数增加）
+     * - 高荆棘层数时移动/攻击扣血 + RotP 流血效果
+     * - 削弱替身
+     */
+    @SubscribeEvent
+    public static void onThornLivingUpdate(LivingUpdateEvent event) {
+        LivingEntity entity = event.getEntityLiving();
+        if (entity.level.isClientSide) return;
+        if (entity instanceof FossilMothEntity) return;
+
+        entity.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+            if (!cap.hasSpear()) return;
+
+            // 检测绕过 heal() 的直接 setHealth 调用（如疯狂钻石修复）
+            float currentHealth = entity.getHealth();
+            float lastHealth = cap.getLastHealth();
+            if (lastHealth >= 0 && currentHealth > lastHealth + 0.01F) {
+                float healedAmount = currentHealth - lastHealth;
+                // 撤销治疗
+                entity.setHealth(lastHealth);
+                // 转化为荆棘层数
+                int thornToAdd = (int) Math.ceil(healedAmount);
+                cap.addThorns(thornToAdd);
+                // 造成等量伤害
+                if (!IS_PROCESSING_THORN.get()) {
+                    IS_PROCESSING_THORN.set(true);
+                    try {
+                        entity.hurt(DamageSource.GENERIC, thornToAdd);
+                    } finally {
+                        IS_PROCESSING_THORN.set(false);
+                    }
+                }
+                // 流血粒子
+                com.github.standobyte.jojo.potion.BleedingEffect.splashBlood(
+                        entity.level, entity.getBoundingBox().getCenter(),
+                        1.0 + thornToAdd * 0.2, thornToAdd,
+                        java.util.OptionalInt.of(Math.min(thornToAdd / 2, 3)),
+                        java.util.Optional.of(entity));
+                syncThornToStuck(entity, cap);
+                syncThornDataFromEvent(entity, cap);
+            }
+            cap.setLastHealth(entity.getHealth());
+
+            if (cap.getThornCount() <= 0) return;
+
+            int thorns = cap.getThornCount();
+
+            // 100层处决：荆棘层数达到上限时造成致命伤害
+            if (thorns >= 100 && !IS_PROCESSING_THORN.get()) {
+                IS_PROCESSING_THORN.set(true);
+                try {
+                    entity.hurt(DamageSource.GENERIC, 100.0F);
+                } finally {
+                    IS_PROCESSING_THORN.set(false);
+                }
+                // 处决流血粒子爆发
+                com.github.standobyte.jojo.potion.BleedingEffect.splashBlood(
+                        entity.level, entity.getBoundingBox().getCenter(),
+                        3.0, 20,
+                        java.util.OptionalInt.of(3),
+                        java.util.Optional.of(entity));
+                return;
+            }
+
+            // 每 20 tick 刷新 debuff（1秒）
+            if (entity.tickCount % 20 == 0) {
+                // 缓慢：命中就有，每 10 层 +1 级，上限 5 级
+                int slowLevel = Math.min(1 + thorns / 10, 5);
+                entity.addEffect(new net.minecraft.potion.EffectInstance(
+                        net.minecraft.potion.Effects.MOVEMENT_SLOWDOWN, 40, slowLevel - 1, false, false, true));
+
+                // 挖掘疲劳：每 25 层 +1 级，上限 4 级
+                int fatigueLevel = Math.min(thorns / 25, 4);
+                if (fatigueLevel > 0) {
+                    entity.addEffect(new net.minecraft.potion.EffectInstance(
+                            net.minecraft.potion.Effects.DIG_SLOWDOWN, 40, fatigueLevel - 1, false, false, true));
+                }
+
+                // 虚弱：每 20 层 +1 级，上限 4 级
+                int weakLevel = Math.min(thorns / 20, 4);
+                if (weakLevel > 0) {
+                    entity.addEffect(new net.minecraft.potion.EffectInstance(
+                            net.minecraft.potion.Effects.WEAKNESS, 40, weakLevel - 1, false, false, true));
+                }
+
+                // 削弱替身：消耗体力 + 对替身实体施加速度/攻击力/攻速削弱
+                if (entity instanceof PlayerEntity) {
+                    IStandPower standPower = IStandPower.getStandPowerOptional((PlayerEntity) entity).resolve().orElse(null);
+                    if (standPower != null && standPower.isActive()) {
+                        float staminaDrain = thorns * 0.5F;
+                        standPower.consumeStamina(staminaDrain);
+
+                        // 对替身实体施加属性削弱
+                        if (standPower.getStandManifestation() instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
+                            com.github.standobyte.jojo.entity.stand.StandEntity standEntity =
+                                    (com.github.standobyte.jojo.entity.stand.StandEntity) standPower.getStandManifestation();
+                            double thornRatio = Math.min(thorns / 100.0, 1.0);
+                            // 速度削弱：最多 -80%
+                            updateDebuff(standEntity, Attributes.MOVEMENT_SPEED, THORN_SLOW_UUID,
+                                    "Thorn Speed Debuff", -0.8 * thornRatio, AttributeModifier.Operation.MULTIPLY_TOTAL);
+                            // 攻击力削弱：最多 -60%
+                            updateDebuff(standEntity, Attributes.ATTACK_DAMAGE, THORN_WEAK_UUID,
+                                    "Thorn Damage Debuff", -0.6 * thornRatio, AttributeModifier.Operation.MULTIPLY_TOTAL);
+                        }
+                    }
+                }
+            }
+
+            // 移动扣血 + RotP 流血效果（命中就有，层数越高扣血越多，最高5）
+            if (entity.tickCount % 20 == 0) {
+                // 移动检测：速度超过阈值就扣血
+                double speedSqr = entity.getDeltaMovement().x * entity.getDeltaMovement().x
+                        + entity.getDeltaMovement().z * entity.getDeltaMovement().z;
+                if (speedSqr > 0.001) {
+                    float moveDamage = Math.min(1.0F + thorns * 0.09F, 10.0F);
+                    if (!IS_PROCESSING_THORN.get()) {
+                        IS_PROCESSING_THORN.set(true);
+                        try {
+                            entity.hurt(DamageSource.GENERIC, moveDamage);
+                        } finally {
+                            IS_PROCESSING_THORN.set(false);
+                        }
+                    }
+                }
+
+                // RotP 流血效果：层数越高持续越久
+                int bleedDuration = Math.min(20 + thorns * 2, 200);
+                int bleedLevel = Math.min(thorns / 25, 3);
+                entity.addEffect(new net.minecraft.potion.EffectInstance(
+                        ModStatusEffects.BLEEDING.get(), bleedDuration, bleedLevel, false, false, true));
+            }
+        });
+    }
+
+    /**
+     * 追踪被长矛插入的敌人造成的伤害：
+     * - 当敌人对其他生物造成的总伤害 >= 荆棘层数 + 8 时，长矛自动脱落
+     * - 高荆棘层数时攻击也会扣血
+     */
+    @SubscribeEvent
+    public static void onThornAttackDamage(LivingHurtEvent event) {
+        if (event.getEntityLiving().level.isClientSide) return;
+
+        // 1. 追踪攻击者造成的伤害（用于长矛脱落判定）
+        Entity sourceEntity = event.getSource().getEntity();
+        if (sourceEntity instanceof LivingEntity) {
+            LivingEntity attacker = (LivingEntity) sourceEntity;
+            attacker.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                if (!cap.hasSpear()) return;
+
+                float damage = event.getAmount();
+                cap.addDamageDealt(damage);
+
+                // 攻击扣血（有荆棘层数时才扣，层数越高扣血越多，最高10）
+                int thorns = cap.getThornCount();
+                if (thorns > 0 && !IS_PROCESSING_THORN.get()) {
+                    float attackPenalty = Math.min(1.0F + thorns * 0.09F, 10.0F);
+                    IS_PROCESSING_THORN.set(true);
+                    try {
+                        attacker.hurt(DamageSource.GENERIC, attackPenalty);
+                    } finally {
+                        IS_PROCESSING_THORN.set(false);
+                    }
+                }
+
+                // 检查是否达到脱落阈值（动态：当前荆棘层数 + 8）
+                float dynamicThreshold = cap.getThornCount() + 8.0F;
+                if (cap.getDamageDealt() >= dynamicThreshold) {
+                    detachSpearFromEntity(attacker, cap);
+                } else {
+                    syncThornDataFromEvent(attacker, cap);
+                }
+            });
+        }
+    }
+
+    /**
+     * 长矛脱落：清除所有荆棘和stuck层数，自动触发回收
+     */
+    private static void detachSpearFromEntity(LivingEntity entity, com.babelmoth.rotp_ata.capability.ISpearThorn thornCap) {
+        // 清除荆棘数据
+        thornCap.reset();
+        syncThornDataFromEvent(entity, thornCap);
+
+        // 清除 stuck 数
+        entity.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(stuckCap -> {
+            stuckCap.setSpearCount(0);
+            com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                    net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity),
+                    new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(entity.getId(), 0));
+        });
+
+        // 找到插在该实体身上的所有长矛并触发回收
+        net.minecraft.util.math.AxisAlignedBB box = entity.getBoundingBox().inflate(5.0);
+        for (com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity spear :
+                entity.level.getEntitiesOfClass(com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity.class, box,
+                        e -> e.isAlive() && e.isInvisible() && e.getStuckTargetId() == entity.getId())) {
+            spear.setRecalled(true);
+        }
+    }
+
+    /**
+     * 荆棘层数同步到 stuck 数（1:1）
+     */
+    private static void syncThornToStuck(LivingEntity entity, com.babelmoth.rotp_ata.capability.ISpearThorn thornCap) {
+        entity.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(stuckCap -> {
+            stuckCap.setSpearCount(thornCap.getThornCount());
+            com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                    net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity),
+                    new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(entity.getId(), thornCap.getThornCount()));
+        });
+    }
+
+    /**
+     * 同步荆棘数据到客户端
+     */
+    private static void syncThornDataFromEvent(LivingEntity entity, com.babelmoth.rotp_ata.capability.ISpearThorn cap) {
+        com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> entity),
+                new com.babelmoth.rotp_ata.networking.SpearThornSyncPacket(
+                        entity.getId(), cap.getThornCount(), cap.getDamageDealt(),
+                        cap.getDetachThreshold(), cap.hasSpear()));
+    }
+
+    /**
+     * Spear block: reduce damage when player is holding block with spear.
+     * Reduction based on stand durability and power via RotP's formula.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onSpearBlockDamage(LivingHurtEvent event) {
+        LivingEntity target = event.getEntityLiving();
+        if (target.level.isClientSide) return;
+        if (!com.babelmoth.rotp_ata.action.ThelaHunGinjeetBlock.isBlocking(target)) return;
+
+        IStandPower.getStandPowerOptional(target).ifPresent(power -> {
+            float reduction = com.babelmoth.rotp_ata.action.ThelaHunGinjeetBlock.getBlockReduction(power, event.getAmount());
+            float newDamage = event.getAmount() * (1.0F - reduction);
+            event.setAmount(newDamage);
+        });
+    }
+
+    /**
+     * Fall damage protection for Thela Hun Ginjeet stand users.
+     * Since stand leap is disabled, we provide fall protection directly.
+     */
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onThelaFallDamage(net.minecraftforge.event.entity.living.LivingFallEvent event) {
+        LivingEntity entity = event.getEntityLiving();
+        if (entity.level.isClientSide) return;
+        IStandPower.getStandPowerOptional(entity).ifPresent(power -> {
+            if (power.hasPower()
+                    && power.getType() == com.babelmoth.rotp_ata.init.InitStands.STAND_THELA_HUN_GINJEET.getStandType()) {
+                // Reduce fall distance by 8 blocks (equivalent to leap strength ~3)
+                event.setDistance(Math.max(event.getDistance() - 8.0F, 0));
+            }
+        });
+    }
+
+    /**
+     * Update spear item NBT with stand-scaled damage when held by the owner.
+     * This makes the spear's attack damage directly correspond to stand power.
+     */
+    @SubscribeEvent
+    public static void onSpearDamageSync(LivingUpdateEvent event) {
+        if (!(event.getEntityLiving() instanceof PlayerEntity)) return;
+        PlayerEntity player = (PlayerEntity) event.getEntityLiving();
+        if (player.level.isClientSide) return;
+        // Only update every 10 ticks to reduce overhead
+        if (player.tickCount % 10 != 0) return;
+
+        net.minecraft.item.ItemStack mainHand = player.getMainHandItem();
+        if (mainHand.getItem() != com.babelmoth.rotp_ata.init.InitItems.THELA_HUN_GINJEET_SPEAR.get()) return;
+
+        IStandPower.getStandPowerOptional(player).ifPresent(power -> {
+            if (power.hasPower() && power.getStandManifestation() instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
+                double standDmg = ((com.github.standobyte.jojo.entity.stand.StandEntity) power.getStandManifestation()).getAttackDamage();
+                mainHand.getOrCreateTag().putDouble("StandScaledDamage", standDmg);
+            } else {
+                // No active stand - remove the tag so default damage is used
+                if (mainHand.hasTag()) {
+                    mainHand.getTag().remove("StandScaledDamage");
+                }
+            }
+        });
+    }
+
+    /**
+     * Prevent non-owners from picking up the spear item.
+     * Only the player whose stand is Thela Hun Ginjeet can pick it up.
+     */
+    @SubscribeEvent
+    public static void onSpearItemPickup(net.minecraftforge.event.entity.player.EntityItemPickupEvent event) {
+        if (event.getItem().getItem().getItem() != com.babelmoth.rotp_ata.init.InitItems.THELA_HUN_GINJEET_SPEAR.get()) return;
+
+        PlayerEntity player = event.getPlayer();
+        boolean isOwner = IStandPower.getStandPowerOptional(player).map(power -> {
+            if (!power.hasPower()) return false;
+            return power.getType() == com.babelmoth.rotp_ata.init.InitStands.STAND_THELA_HUN_GINJEET.getStandType();
+        }).orElse(false);
+
+        if (!isOwner) {
+            event.setCanceled(true);
+        }
+    }
+
+    /**
+     * When a Thela Hun Ginjeet stand user dies, remove all their thrown spears
+     * and clean up stuck/thorn data on targets.
+     */
+    @SubscribeEvent
+    public static void onThelaHunGinjeetUserDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event) {
+        LivingEntity entity = event.getEntityLiving();
+        if (entity.level.isClientSide) return;
+        if (!(entity instanceof PlayerEntity)) return;
+
+        PlayerEntity deadPlayer = (PlayerEntity) entity;
+        boolean isThelaUser = IStandPower.getStandPowerOptional(deadPlayer).map(power -> {
+            if (!power.hasPower()) return false;
+            return power.getType() == com.babelmoth.rotp_ata.init.InitStands.STAND_THELA_HUN_GINJEET.getStandType();
+        }).orElse(false);
+        if (!isThelaUser) return;
+
+        // 设置死亡保护标记，防止重生过渡期内附魔被tick检查误清除
+        com.babelmoth.rotp_ata.util.SpearEnchantHelper.setDeathProtection(deadPlayer);
+
+        net.minecraft.util.math.AxisAlignedBB searchBox = deadPlayer.getBoundingBox().inflate(200.0);
+        for (com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity spear :
+                entity.level.getEntitiesOfClass(com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity.class, searchBox,
+                        e -> e.isAlive() && deadPlayer.equals(e.getOwner()))) {
+            int targetId = spear.getStuckTargetId();
+            if (targetId >= 0) {
+                net.minecraft.entity.Entity target = entity.level.getEntity(targetId);
+                if (target instanceof LivingEntity) {
+                    LivingEntity livingTarget = (LivingEntity) target;
+                    livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(cap -> {
+                        cap.setSpearCount(0);
+                        com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> livingTarget),
+                                new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(livingTarget.getId(), 0));
+                    });
+                    livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                        cap.reset();
+                        com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> livingTarget),
+                                new com.babelmoth.rotp_ata.networking.SpearThornSyncPacket(
+                                        livingTarget.getId(), cap.getThornCount(), cap.getDamageDealt(),
+                                        cap.getDetachThreshold(), cap.hasSpear()));
+                    });
+                }
+            }
+            spear.remove();
+        }
+    }
+
+    /**
+     * 附魔数据清除：当玩家失去赛拉·杭·金吉替身时，清除保存的附魔数据
+     */
+    @SubscribeEvent
+    public static void onPlayerTickCheckEnchantClear(TickEvent.PlayerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        if (event.player.level.isClientSide) return;
+        // 每100tick检查一次
+        if (event.player.tickCount % 100 != 0) return;
+
+        PlayerEntity player = event.player;
+        // 检查是否有保存的附魔数据
+        if (!player.getPersistentData().contains("ThelaHunGinjeetEnchantments")) return;
+
+        // 死亡保护期内跳过检查，防止重生过渡期误清除
+        if (com.babelmoth.rotp_ata.util.SpearEnchantHelper.hasDeathProtection(player)) return;
+
+        // 检查是否仍持有赛拉·杭·金吉替身
+        boolean hasThela = IStandPower.getStandPowerOptional(player).map(power -> {
+            if (!power.hasPower()) return false;
+            return power.getType() == com.babelmoth.rotp_ata.init.InitStands.STAND_THELA_HUN_GINJEET.getStandType();
+        }).orElse(false);
+
+        if (!hasThela) {
+            com.babelmoth.rotp_ata.util.SpearEnchantHelper.clearSavedEnchantments(player);
+        }
+    }
+
+    /**
+     * 抢夺附魔：长矛相关伤害源击杀时应用抢夺等级
+     */
+    @SubscribeEvent
+    public static void onSpearLootingLevel(net.minecraftforge.event.entity.living.LootingLevelEvent event) {
+        DamageSource source = event.getDamageSource();
+        if (source == null || source.getMsgId() == null) return;
+        String msgId = source.getMsgId();
+        // 匹配长矛相关伤害源
+        if (!msgId.startsWith("stand.spear") && !msgId.equals("arrow")) return;
+
+        Entity attacker = source.getEntity();
+        if (!(attacker instanceof PlayerEntity)) return;
+        PlayerEntity player = (PlayerEntity) attacker;
+
+        // 从主手或投掷的矛获取抢夺等级
+        net.minecraft.item.ItemStack spear = com.babelmoth.rotp_ata.util.SpearEnchantHelper.getSpearFromPlayer(player);
+        if (spear.isEmpty()) {
+            // 可能是投掷状态，从投掷实体获取
+            if (source.getDirectEntity() instanceof com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity) {
+                spear = ((com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity) source.getDirectEntity()).getSpearItem();
+            }
+        }
+        if (!spear.isEmpty()) {
+            int lootingLevel = com.babelmoth.rotp_ata.util.SpearEnchantHelper.getLootingLevel(spear);
+            if (lootingLevel > 0) {
+                event.setLootingLevel(event.getLootingLevel() + lootingLevel);
+            }
+        }
+    }
+
     }
