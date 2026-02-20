@@ -5,8 +5,14 @@
     "compatibilityLevel": "JAVA_8",
     "refmap": "rotp_ata.refmap.json",
     "mixins": [
+        "AbstractBlockMixin",
+        "ButtonBlockMixin",
+        "DoorBlockMixin",
+        "LeverBlockMixin",
+        "PlayerEntityMixin",
         "PressurePlateBlockMixin",
-        "PlayerEntityMixin"
+        "TrapDoorBlockMixin",
+        "WorldMixin"
     ],
     "client": [
     ],

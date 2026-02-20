@@ -1,0 +1,25 @@
+{
+  "parent": "rotp_ata:item/thela_hun_ginjeet_spear_3d",
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [-180, 0, 0],
+      "translation": [0, -4, 2],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "thirdperson_lefthand": {
+      "rotation": [-180, 0, 0],
+      "translation": [0, -4, 2],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "firstperson_righthand": {
+      "rotation": [-20, 10, 15],
+      "translation": [2, -5, -7],
+      "scale": [0.7, 0.7, 0.7]
+    },
+    "firstperson_lefthand": {
+      "rotation": [-20, -10, 15],
+      "translation": [3.5, -4, -8],
+      "scale": [0.7, 0.7, 0.7]
+    }
+  }
+}

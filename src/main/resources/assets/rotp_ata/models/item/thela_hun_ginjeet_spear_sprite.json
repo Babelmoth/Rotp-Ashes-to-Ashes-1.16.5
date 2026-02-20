@@ -1,0 +1,6 @@
+{
+  "parent": "item/generated",
+  "textures": {
+    "layer0": "rotp_ata:item/thela_hun_ginjeet_spear_item"
+  }
+}
