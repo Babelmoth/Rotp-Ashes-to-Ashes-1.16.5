@@ -34,7 +34,7 @@ credits="StandoByte,Babelmoth" #optional
 authors="Babelmoth" #optional
 # The description text for the mod (multi line!) (#mandatory)
 description='''
-A addons for Ripples of the Past mod. Include some Stand which designed by Babelmoth
+An addon for Ripples of the Past. Includes original Stands designed by Babelmoth: Ashes to Ashes and Thela Hun Ginjeet.
 '''
 # A dependency - use the . to indicate dependency for a specific modid. Dependencies are optional.
 [[dependencies.rotp_ata]] #optional
@@ -61,4 +61,10 @@ A addons for Ripples of the Past mod. Include some Stand which designed by Babel
     mandatory=true
     versionRange="[0.2.2,0.3)"
     ordering="AFTER"
+    side="BOTH"
+[[dependencies.rotp_ata]]
+    modId="geckolib3"
+    mandatory=true
+    versionRange="[3.0.0,)"
+    ordering="NONE"
     side="BOTH"

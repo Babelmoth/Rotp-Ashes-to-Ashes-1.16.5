@@ -19,7 +19,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.item.ItemEntity;
 import net.minecraft.util.math.vector.Vector3d;
-import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
 public class AshesToAshesMothSwarmAttack extends StandAction {
@@ -72,7 +72,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         if (!power.isActive()) {
             return ActionConditionResult.POSITIVE;
         }
-        return ActionConditionResult.createNegative(new StringTextComponent("No moths available"));
+        return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.no_moths_available"));
     }
 
     @Override

@@ -11,7 +11,6 @@ import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
-import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
@@ -43,7 +42,7 @@ public class AshesToAshesKineticAdhesion extends StandAction {
             }
             return ActionConditionResult.POSITIVE;
         }
-        return ActionConditionResult.createNegative(new StringTextComponent("Need target"));
+        return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.need_target"));
     }
 
     @Override

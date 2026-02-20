@@ -50,6 +50,11 @@
 
   "block.rotp_ata.frozen_barrier": "Frozen Barrier",
   "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action.",
+  "jojo.ata.message.requires_stand_summoned": "Stand must be summoned",
+  "jojo.ata.message.action_condition.ground_only": "Must target a block",
+  "jojo.ata.message.need_target": "Need target",
+  "jojo.ata.message.no_moths_available": "No moths available",
+  "jojo.ata.message.no_remote_control": "Cannot use in remote control",
   "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place.",
 
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "Development S",

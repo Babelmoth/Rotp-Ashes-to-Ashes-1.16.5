@@ -124,7 +124,7 @@ public class InitStands {
                 m.invoke(builder, shift);
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            AddonMain.LOGGER.error("Failed to add shift variation", e);
         }
         return builder;
     }

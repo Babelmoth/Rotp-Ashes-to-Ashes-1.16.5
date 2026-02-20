@@ -52,6 +52,9 @@
   "jojo.ata.message.requires_momentum": "您的动能储备不足以支持您这么做",
   "jojo.ata.message.requires_stand_summoned": "需要召唤替身",
   "jojo.ata.message.action_condition.ground_only": "需要对准方块使用",
+  "jojo.ata.message.need_target": "需要目标",
+  "jojo.ata.message.no_moths_available": "没有可用的飞蛾",
+  "jojo.ata.message.no_remote_control": "远程操控时无法使用",
   "jojo.ata.message.kinetic_insufficient": "动能不足，无法放置",
 
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "成长性S",

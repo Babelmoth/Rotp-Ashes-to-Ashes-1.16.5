@@ -19,13 +19,7 @@ public class DoorBlockMixin {
 
     @Inject(method = "use", at = @At("HEAD"), cancellable = true)
     public void onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit, CallbackInfoReturnable<ActionResultType> cir) {
-        // Check both halves of the door
         int count = AshesToAshesEventHandler.getProtectingMothCount(world, pos);
-        
-        // Debug message
-        if (!world.isClientSide && player != null) {
-            player.displayClientMessage(new net.minecraft.util.text.StringTextComponent("[DEBUG] Door Use - Moth Count: " + count + " at " + pos), false);
-        }
         
         if (count > 0) {
             cir.setReturnValue(ActionResultType.FAIL);

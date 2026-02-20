@@ -20,7 +20,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
-import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
 public class AshesToAshesKineticPiercing extends StandAction {
@@ -46,7 +46,7 @@ public class AshesToAshesKineticPiercing extends StandAction {
         if (manifestation instanceof StandEntity) {
             StandEntity stand = (StandEntity) manifestation;
             if (stand.isManuallyControlled()) {
-                return ActionConditionResult.createNegative(new StringTextComponent("Cannot use in remote control"));
+                return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.no_remote_control"));
             }
         }
         
@@ -60,7 +60,7 @@ public class AshesToAshesKineticPiercing extends StandAction {
                 .map(pool -> pool.getTotalMoths() < com.babelmoth.rotp_ata.capability.IMothPool.MAX_MOTHS)
                 .orElse(false);
             if (!canSpawn) {
-                return ActionConditionResult.createNegative(new StringTextComponent("No moths available"));
+                return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.no_moths_available"));
             }
         }
         
