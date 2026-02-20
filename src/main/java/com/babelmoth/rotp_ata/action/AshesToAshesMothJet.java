@@ -8,6 +8,8 @@ import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 
+import com.github.standobyte.jojo.init.ModStatusEffects;
+
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
@@ -22,7 +24,9 @@ public class AshesToAshesMothJet extends StandAction {
 
     private static final float STAMINA_COST_PER_MOTH = 35.0f;
     private static final int TICKS_PER_MOTH = 4; // One moth every 4 ticks
+    private static final int TICKS_PER_MOTH_RESOLVE = 3; // Faster during Resolve
     private static final float JET_SPEED = 2.5f;
+    private static final float JET_SPEED_RESOLVE = 3.5f;
 
     public AshesToAshesMothJet(AbstractBuilder<?> builder) {
         super(builder);
@@ -61,7 +65,8 @@ public class AshesToAshesMothJet extends StandAction {
     @Override
     public void onHoldTick(World world, LivingEntity user, IStandPower power, int ticksHeld, ActionTarget target, boolean requirementsMet) {
         if (world.isClientSide || !requirementsMet) return;
-        if (ticksHeld % TICKS_PER_MOTH != 0) return;
+        int interval = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? TICKS_PER_MOTH_RESOLVE : TICKS_PER_MOTH;
+        if (ticksHeld % interval != 0) return;
         if (power.getStamina() < STAMINA_COST_PER_MOTH) return;
 
         if (trySpawnJetMoth(world, user, power)) {
@@ -97,7 +102,8 @@ public class AshesToAshesMothJet extends StandAction {
                 FossilMothEntity moth = new FossilMothEntity(world, owner);
                 moth.setMothPoolIndex(slot);
                 moth.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
-                moth.jetFire(dir, JET_SPEED);
+                float speed = owner.hasEffect(ModStatusEffects.RESOLVE.get()) ? JET_SPEED_RESOLVE : JET_SPEED;
+                moth.jetFire(dir, speed);
                 world.addFreshEntity(moth);
                 if (owner instanceof net.minecraft.entity.player.ServerPlayerEntity) {
                     pool.sync((net.minecraft.entity.player.ServerPlayerEntity) owner);

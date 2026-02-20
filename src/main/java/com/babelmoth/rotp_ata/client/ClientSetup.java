@@ -30,5 +30,10 @@ public class ClientSetup {
             sprite -> new com.babelmoth.rotp_ata.client.render.particle.AshSmokeLargeParticle.Factory(sprite) 
         );
 
+        Minecraft.getInstance().particleEngine.register(
+            InitParticles.STAND_RESOLVE_AURA.get(),
+            sprite -> new com.babelmoth.rotp_ata.client.render.particle.StandResolveAuraParticle.Factory(sprite)
+        );
+
     }
 }

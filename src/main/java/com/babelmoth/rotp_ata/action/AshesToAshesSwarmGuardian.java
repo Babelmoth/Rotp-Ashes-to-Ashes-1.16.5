@@ -4,13 +4,18 @@ import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
+import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
+import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.projectile.ProjectileHelper;
+import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.EntityRayTraceResult;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.World;
 import java.util.List;
@@ -31,82 +36,78 @@ public class AshesToAshesSwarmGuardian extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // Allow action regardless of stand state - we'll summon in perform
         return ActionConditionResult.POSITIVE;
     }
 
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // Force summon stand if not active
             if (!power.isActive() && power.getType() instanceof com.github.standobyte.jojo.power.impl.stand.type.EntityStandType) {
                 ((com.github.standobyte.jojo.power.impl.stand.type.EntityStandType<?>) power.getType())
                     .summon(user, power, entity -> {}, true, true);
             }
-            
-            // Get all owned moths
-            List<FossilMothEntity> allMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
-            
-            // Count current guardian moths and available moths
-            List<FossilMothEntity> currentGuardians = new ArrayList<>();
-            List<FossilMothEntity> availableMoths = new ArrayList<>();
-            
-            for (FossilMothEntity moth : allMoths) {
-                if (moth.isShieldPersistent()) {
-                    currentGuardians.add(moth);
-                } else if (!moth.isAttached() && !moth.isAttachedToEntity() && !moth.isRecalling() 
-                        && !moth.isPiercingFiring() && !moth.isPiercingCharging()) {
-                    availableMoths.add(moth);
-                }
-            }
-            
-            int currentCount = currentGuardians.size();
-            int needMore = GUARDIAN_MOTH_COUNT - currentCount;
-            
-            // If we already have 10, toggle them off
-            if (currentCount >= GUARDIAN_MOTH_COUNT) {
-                // Disable all guardian moths
+
+            Entity viewCenter = MothQueryUtil.getViewpointCenter(user);
+            Vector3d eyePos = viewCenter instanceof LivingEntity
+                    ? ((LivingEntity) viewCenter).getEyePosition(1.0F) : viewCenter.position();
+            Vector3d lookVec = viewCenter instanceof LivingEntity
+                    ? ((LivingEntity) viewCenter).getViewVector(1.0F) : viewCenter.getLookAngle();
+            double range = AshesToAshesConstants.QUERY_RADIUS_GUARDIAN;
+            Vector3d maxVec = eyePos.add(lookVec.scale(range));
+            AxisAlignedBB aabb = viewCenter.getBoundingBox().expandTowards(lookVec.scale(range)).inflate(1.0);
+
+            EntityRayTraceResult result = ProjectileHelper.getEntityHitResult(
+                    viewCenter, eyePos, maxVec, aabb,
+                    entity -> entity instanceof LivingEntity && entity.isAlive()
+                            && entity != user && !(entity instanceof FossilMothEntity)
+                            && !(entity instanceof StandEntity),
+                    range * range);
+            Entity targetEntity = result != null ? result.getEntity() : null;
+
+            List<FossilMothEntity> currentGuardians = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+
+            if (targetEntity == null || currentGuardians.size() >= GUARDIAN_MOTH_COUNT) {
                 for (FossilMothEntity moth : currentGuardians) {
                     moth.setShieldTarget(null);
                 }
                 return;
             }
-            
-            // Need to recruit more guardian moths
-            // First, try to spawn new moths if we don't have enough
-            int totalAvailable = availableMoths.size();
-            if (totalAvailable < needMore) {
-                int toSpawn = needMore - totalAvailable;
+
+            List<FossilMothEntity> availableMoths = MothQueryUtil.getFreeMothsAround(user, viewCenter, range);
+            int needMore = GUARDIAN_MOTH_COUNT - currentGuardians.size();
+
+            if (availableMoths.size() < needMore) {
+                int toSpawn = needMore - availableMoths.size();
+                Entity spawnCenter = viewCenter;
                 user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
                     for (int i = 0; i < toSpawn; i++) {
                         int slot = pool.allocateSlotWithPriority(true);
                         if (slot != -1) {
                             FossilMothEntity moth = new FossilMothEntity(world, user);
                             moth.setMothPoolIndex(slot);
-                            moth.setPos(user.getX(), user.getY() + 1, user.getZ());
+                            moth.setPos(spawnCenter.getX(), spawnCenter.getY() + 1, spawnCenter.getZ());
                             world.addFreshEntity(moth);
                             availableMoths.add(moth);
                         }
                     }
                     if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                        pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
+                        pool.sync((net.minecraft.entity.player.ServerPlayerEntity) user);
                     }
                 });
             }
-            
-            // Recruit available moths as guardians until we have 10
+
             int recruited = 0;
             for (FossilMothEntity moth : availableMoths) {
-                if (currentCount + recruited >= GUARDIAN_MOTH_COUNT) break;
-                moth.setShieldTarget(user, true); // Persistent shield on owner
+                if (currentGuardians.size() + recruited >= GUARDIAN_MOTH_COUNT) break;
+                moth.setShieldTarget(targetEntity, true);
+                moth.setIsShieldMoth(false);
                 moth.refreshShield();
                 moth.detach();
                 recruited++;
             }
-            
-            // Refresh all existing guardian moths
+
             for (FossilMothEntity moth : currentGuardians) {
-                moth.setShieldTarget(user, true);
+                moth.setShieldTarget(targetEntity, true);
                 moth.refreshShield();
             }
         }

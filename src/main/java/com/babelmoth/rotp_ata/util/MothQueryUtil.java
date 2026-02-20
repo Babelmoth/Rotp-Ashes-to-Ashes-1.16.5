@@ -1,14 +1,18 @@
 package com.babelmoth.rotp_ata.util;
 
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
+import com.github.standobyte.jojo.entity.stand.StandEntity;
+import com.github.standobyte.jojo.power.impl.stand.IStandPower;
+import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.github.standobyte.jojo.util.mc.MCUtil;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 
 import java.util.List;
 import java.util.WeakHashMap;
 
 /**
- * Utility class for querying FossilMothEntity instances with caching support.
+ * Moth entity query utilities.
  */
 public class MothQueryUtil {
     
@@ -20,9 +24,7 @@ public class MothQueryUtil {
         long lastUpdate;
     }
     
-    /**
-     * Gets free moths (not attached, not assigned to tasks, not persistent shield) owned by the owner.
-     */
+    /** Free moths around the owner (excludes attached, busy, and persistent). */
     public static List<FossilMothEntity> getFreeMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner 
@@ -31,9 +33,7 @@ public class MothQueryUtil {
                 && !moth.isShieldPersistent()); // Exclude guardian moths
     }
     
-    /**
-     * Gets moths attached to the target entity (cached).
-     */
+    /** Attached moths on target entity (cached). */
     public static List<FossilMothEntity> getAttachedMoths(LivingEntity target, double radius) {
         if (target == null || target.level == null) {
             return java.util.Collections.emptyList();
@@ -54,43 +54,33 @@ public class MothQueryUtil {
         return cached.moths;
     }
     
-    /**
-     * Gets all moths owned by the owner.
-     */
+    /** All moths owned by the given entity. */
     public static List<FossilMothEntity> getOwnerMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner);
     }
     
-    /**
-     * Gets moths available for swarm attack (free moths, excluding guardian moths).
-     */
+    /** Swarm-eligible moths (free, non-guardian). */
     public static List<FossilMothEntity> getMothsForSwarm(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.getOwner() == owner && !moth.isAttached() && !moth.isAttachedToEntity()
                 && !moth.isShieldPersistent()); // Exclude guardian moths
     }
     
-    /**
-     * Gets moths currently charging for kinetic piercing.
-     */
+    /** Moths currently charging kinetic piercing. */
     public static List<FossilMothEntity> getChargingMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner && moth.isPiercingCharging());
     }
     
-    /**
-     * Gets moths attached to blocks at the given position.
-     */
+    /** Moths attached to the block at pos. */
     public static List<FossilMothEntity> getMothsAtBlock(LivingEntity owner, net.minecraft.util.math.BlockPos pos, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner 
                 && moth.isAttached() && pos.equals(moth.getAttachedPos()));
     }
     
-    /**
-     * Gets moths with energy (kinetic or hamon) for detonation, excluding guardian moths.
-     */
+    /** Attached moths with energy, excluding guardians. */
     public static List<FossilMothEntity> getMothsWithEnergy(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
             moth -> moth.isAlive() && moth.getOwner() == owner 
@@ -99,11 +89,76 @@ public class MothQueryUtil {
                 && !moth.isShieldPersistent()); // Exclude guardian moths
     }
     
-    /**
-     * Gets guardian moths (shield persistent) owned by the owner.
-     */
+    /** Current viewpoint entity: stand if manually controlled, otherwise user. */
+    public static Entity getViewpointCenter(LivingEntity user) {
+        return IStandPower.getStandPowerOptional(user).map(power -> {
+            IStandManifestation manifestation = power.getStandManifestation();
+            if (manifestation instanceof StandEntity) {
+                StandEntity stand = (StandEntity) manifestation;
+                if (stand.isManuallyControlled()) return (Entity) stand;
+            }
+            return (Entity) user;
+        }).orElse(user);
+    }
+
+    /** Free moths around the given center, owned by owner. */
+    public static List<FossilMothEntity> getFreeMothsAround(LivingEntity owner, Entity center, double radius) {
+        return MCUtil.entitiesAround(FossilMothEntity.class, center, radius, false,
+            moth -> moth.isAlive() && moth.getOwner() == owner 
+                && !moth.isAttached() && !moth.isAttachedToEntity()
+                && !moth.isRecalling() && !moth.isPiercingFiring() && !moth.isPiercingCharging()
+                && !moth.isShieldPersistent());
+    }
+
+    /** Swarm-eligible moths around the given center, owned by owner. */
+    public static List<FossilMothEntity> getMothsForSwarmAround(LivingEntity owner, Entity center, double radius) {
+        return MCUtil.entitiesAround(FossilMothEntity.class, center, radius, false,
+            moth -> moth.getOwner() == owner && !moth.isAttached() && !moth.isAttachedToEntity()
+                && !moth.isShieldPersistent());
+    }
+
+    /** The entity on the opposite side of a manual-control split, or null if no split. */
+    public static Entity getOtherSideEntity(LivingEntity owner, Entity viewCenter) {
+        IStandPower power = IStandPower.getStandPowerOptional(owner).resolve().orElse(null);
+        if (power == null) return null;
+        IStandManifestation manifestation = power.getStandManifestation();
+        if (manifestation instanceof StandEntity && ((StandEntity) manifestation).isManuallyControlled()) {
+            return viewCenter == owner ? (Entity) manifestation : (Entity) owner;
+        }
+        return null;
+    }
+
+    /** Free moths local to the current viewpoint (proximity-split when stand is manually controlled). */
+    public static List<FossilMothEntity> getViewpointFreeMoths(LivingEntity owner, double radius) {
+        final Entity viewCenter = getViewpointCenter(owner);
+        final Entity otherSide = getOtherSideEntity(owner, viewCenter);
+        return MCUtil.entitiesAround(FossilMothEntity.class, viewCenter, radius, false,
+            moth -> moth.isAlive() && moth.getOwner() == owner
+                && !moth.isAttached() && !moth.isAttachedToEntity()
+                && !moth.isRecalling() && !moth.isPiercingFiring() && !moth.isPiercingCharging()
+                && !moth.isShieldPersistent()
+                && (otherSide == null || moth.distanceToSqr(viewCenter) <= moth.distanceToSqr(otherSide)));
+    }
+
+    /** Swarm moths local to the current viewpoint (proximity-split when stand is manually controlled). */
+    public static List<FossilMothEntity> getViewpointSwarmMoths(LivingEntity owner, double radius) {
+        final Entity viewCenter = getViewpointCenter(owner);
+        final Entity otherSide = getOtherSideEntity(owner, viewCenter);
+        return MCUtil.entitiesAround(FossilMothEntity.class, viewCenter, radius, false,
+            moth -> moth.getOwner() == owner && !moth.isAttached() && !moth.isAttachedToEntity()
+                && !moth.isShieldPersistent()
+                && (otherSide == null || moth.distanceToSqr(viewCenter) <= moth.distanceToSqr(otherSide)));
+    }
+
+    /** Shield moths (persistent + isShieldMoth). */
+    public static List<FossilMothEntity> getShieldMoths(LivingEntity owner, double radius) {
+        return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
+            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isShieldPersistent() && moth.isShieldMoth());
+    }
+    
+    /** Guardian moths (persistent, not shield). */
     public static List<FossilMothEntity> getGuardianMoths(LivingEntity owner, double radius) {
         return MCUtil.entitiesAround(FossilMothEntity.class, owner, radius, false,
-            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isShieldPersistent());
+            moth -> moth.isAlive() && moth.getOwner() == owner && moth.isShieldPersistent() && !moth.isShieldMoth());
     }
 }

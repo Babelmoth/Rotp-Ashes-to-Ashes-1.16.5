@@ -9,6 +9,8 @@ import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 
+import com.github.standobyte.jojo.init.ModStatusEffects;
+
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
@@ -48,8 +50,9 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
         if (!world.isClientSide && requirementsMet) {
             // Slowdown while holding is handled by RotP via getHeldWalkSpeed() (see InitStands)
             
-            // Fire every 5 ticks (4 shots per second)
-            if (ticksHeld % 5 == 0) {
+            // Fire rate: 3 ticks during Resolve, 5 ticks normally
+            int fireInterval = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 3 : 5;
+            if (ticksHeld % fireInterval == 0) {
                 // Cost: 5 Momentum (Kinetic Energy from moths) + Stamina
                 int momentumCost = 5;
                 float staminaCost = 50.0f;
@@ -90,7 +93,8 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
                             (world.random.nextDouble() - 0.5) * 0.1, 
                             (world.random.nextDouble() - 0.5) * 0.1).normalize();
                         
-                        float speed = 3.5f; // Fast bullet
+                        // Speed boost during Resolve
+                        float speed = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 5.0f : 3.5f;
                         bulletMoth.piercingFire(lookDir, speed);
                         
                         world.addFreshEntity(bulletMoth);

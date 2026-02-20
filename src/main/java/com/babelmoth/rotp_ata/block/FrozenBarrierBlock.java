@@ -57,14 +57,24 @@ public class FrozenBarrierBlock extends Block {
 
     @Override
     public VoxelShape getCollisionShape(BlockState state, IBlockReader world, BlockPos pos, ISelectionContext context) {
-        // Owner can pass through
+        // Owner can pass through if barrierPassthrough is enabled in config
         Entity entity = context.getEntity();
         if (entity != null && world instanceof World) {
             TileEntity te = ((World)world).getBlockEntity(pos);
             if (te instanceof FrozenBarrierBlockEntity) {
                 UUID ownerUUID = ((FrozenBarrierBlockEntity) te).getOwnerUUID();
                 if (ownerUUID != null && entity.getUUID().equals(ownerUUID)) {
-                    return VoxelShapes.empty(); // Owner can pass through
+                    if (entity instanceof LivingEntity) {
+                        boolean passthrough = entity.getCapability(
+                                com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                                .map(com.babelmoth.rotp_ata.capability.IMothPool::isBarrierPassthrough)
+                                .orElse(true);
+                        if (passthrough) {
+                            return VoxelShapes.empty(); // Owner can pass through
+                        }
+                    } else {
+                        return VoxelShapes.empty(); // Non-living owner entities pass through by default
+                    }
                 }
             }
         }

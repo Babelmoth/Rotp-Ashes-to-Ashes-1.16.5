@@ -145,22 +145,27 @@ public class InitStands {
                     .resolveLevelToUnlock(3)
                     .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_REMOVE_BARRIER::get)));
 
-    // Stand type: Ashes to Ashes. Stats: Power E-C, Speed C, Range A (800m), Durability B, Precision A
+    public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesSwarmConfig> ASHES_TO_ASHES_SWARM_CONFIG = ACTIONS.register("ashes_to_ashes_swarm_config", 
+            () -> new com.babelmoth.rotp_ata.action.AshesToAshesSwarmConfig(new StandAction.Builder()
+                    .resolveLevelToUnlock(0)
+                    .cooldown(5, 0, 1.0f)));
+
+    // Stand type: Ashes to Ashes. Stats: Power E-C, Speed C, Range A (100m), Durability C, Precision E
     public static final EntityStandRegistryObject<EntityStandType<StandStats>, StandEntityType<AshesToAshesStandEntity>> STAND_ASHES_TO_ASHES = 
             new EntityStandRegistryObject<>("ashes_to_ashes", 
                     STANDS, 
                     () -> new EntityStandType.Builder<StandStats>()
-                    .color(0x8B7355) // Ash brown
+                    .color(0x8B7355) 
                     .storyPartName(InitStands.ORIGINAL_STANDS_PART.getName())
                     .leftClickHotbar(ASHES_TO_ASHES_MOTH_BITE.get(), ASHES_TO_ASHES_MOTH_SWARM_ATTACK.get(), ASHES_TO_ASHES_ADHESION.get(), ASHES_TO_ASHES_KINETIC_PIERCING.get(), ASHES_TO_ASHES_BULLET_WITH_BUTTERFLY_WINGS.get())
-                    .rightClickHotbar(ASHES_TO_ASHES_SWARM_SHIELD.get(), ASHES_TO_ASHES_MOTH_RECALL.get(), ASHES_TO_ASHES_KINETIC_DETONATION.get(), ASHES_TO_ASHES_KINETIC_SENSING.get(), ASHES_TO_ASHES_FROZEN_BARRIER.get())
+                    .rightClickHotbar(ASHES_TO_ASHES_SWARM_SHIELD.get(), ASHES_TO_ASHES_MOTH_RECALL.get(), ASHES_TO_ASHES_KINETIC_DETONATION.get(), ASHES_TO_ASHES_KINETIC_SENSING.get(), ASHES_TO_ASHES_FROZEN_BARRIER.get(), ASHES_TO_ASHES_SWARM_CONFIG.get())
                     .defaultStats(StandStats.class, new StandStats.Builder()
-                            .tier(5) // Growth A
+                            .tier(5) // E
                             .power(1.0) // E-C
                             .speed(10.0) // C
-                            .range(50, 100) // A - 800m
-                            .durability(10.0, 16.0) // B
-                            .precision(12.0, 16) // A
+                            .range(50, 100) // A - 100m
+                            .durability(12.0, 14.0) // C
+                            .precision(8.0, 10) // E
                             .build())
                     .addSummonShout(InitSounds.ASHES_TO_ASHES_SUMMON_VOICELINE)
                     .addOst(InitSounds.ASHES_TO_ASHES_OST)
@@ -221,7 +226,7 @@ public class InitStands {
             new EntityStandRegistryObject<>("thela_hun_ginjeet",
                     STANDS,
                     () -> new EntityStandType.Builder<StandStats>()
-                            .color(0x7F8C8D)
+                            .color(0x3f1c4a)
                             .storyPartName(InitStands.ORIGINAL_STANDS_PART.getName())
                             .disableManualControl()
                             .disableStandLeap()

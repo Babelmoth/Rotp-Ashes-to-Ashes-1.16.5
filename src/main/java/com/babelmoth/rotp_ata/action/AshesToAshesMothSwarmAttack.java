@@ -18,12 +18,13 @@ import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.item.ItemEntity;
+import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.util.text.StringTextComponent;
 import net.minecraft.world.World;
 
 public class AshesToAshesMothSwarmAttack extends StandAction {
 
-    /** Pending swarm attack to run after a short delay so the stand can tick and replenish moths. */
+    /** Pending delayed swarm attack (queued when stand is freshly summoned). */
     private static final Map<UUID, PendingSwarm> PENDING_SWARM = new ConcurrentHashMap<>();
     private static final int DELAY_TICKS = 3;
 
@@ -36,7 +37,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         }
     }
 
-    /** Called by EventHandler in ServerTickEvent to run due delayed swarm attacks. */
+    /** Tick pending delayed swarm attacks (called from ServerTickEvent). */
     public static void tickPendingSwarmAttacks(net.minecraft.world.server.ServerWorld world) {
         long now = world.getGameTime();
         PENDING_SWARM.entrySet().removeIf(entry -> {
@@ -64,13 +65,12 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // Same as original: allow when moths nearby, or when stand not out (perform will summon then use moths next tick)
-        List<FossilMothEntity> moths = MothQueryUtil.getMothsForSwarm(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
+        List<FossilMothEntity> moths = MothQueryUtil.getViewpointSwarmMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
         if (!moths.isEmpty()) {
             return ActionConditionResult.POSITIVE;
         }
         if (!power.isActive()) {
-            return ActionConditionResult.POSITIVE; // Allowed when not out; perform will summon then use moths next tick
+            return ActionConditionResult.POSITIVE;
         }
         return ActionConditionResult.createNegative(new StringTextComponent("No moths available"));
     }
@@ -81,11 +81,9 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
             net.minecraft.world.server.ServerWorld serverWorld = (net.minecraft.world.server.ServerWorld) world;
             boolean wasInactive = !power.isActive();
 
-            // If stand was not out: fully summon first (addToWorld=true), then run swarm attack after a short delay
             if (wasInactive && power.getType() instanceof com.github.standobyte.jojo.power.impl.stand.type.EntityStandType) {
                 ((com.github.standobyte.jojo.power.impl.stand.type.EntityStandType<?>) power.getType())
                     .summon(user, power, entity -> {}, true, true);
-                // Delay a few ticks so the stand ticks and replenishes moths before driving them
                 PENDING_SWARM.put(user.getUUID(), new PendingSwarm(serverWorld, serverWorld.getGameTime() + DELAY_TICKS));
                 return;
             }
@@ -94,21 +92,16 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         }
     }
 
-    /** Run swarm attack when stand is already out (uses only nearby moths, no extra spawns). */
     private void runSwarmAttack(net.minecraft.world.server.ServerWorld world, LivingEntity user, IStandPower power) {
         runSwarmAttackStatic(world, user, power);
     }
 
     private static void runSwarmAttackStatic(net.minecraft.world.server.ServerWorld world, LivingEntity user, IStandPower power) {
         double range = AshesToAshesConstants.QUERY_RADIUS_SWARM;
-        List<FossilMothEntity> moths = MothQueryUtil.getMothsForSwarm(user, range);
-        if (moths.isEmpty()) {
-            return; // No moths nearby: do not attack (same as original skill)
-        }
 
         Entity viewEntity = user;
-        net.minecraft.util.math.vector.Vector3d eyePos = user.getEyePosition(1.0F);
-        net.minecraft.util.math.vector.Vector3d lookVec = user.getViewVector(1.0F);
+        Vector3d eyePos = user.getEyePosition(1.0F);
+        Vector3d lookVec = user.getViewVector(1.0F);
 
         IStandManifestation stand = power.getStandManifestation();
         if (stand instanceof StandEntity) {
@@ -118,6 +111,11 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
                 eyePos = standEntity.getEyePosition(1.0F);
                 lookVec = standEntity.getViewVector(1.0F);
             }
+        }
+
+        List<FossilMothEntity> moths = MothQueryUtil.getViewpointSwarmMoths(user, range);
+        if (moths.isEmpty()) {
+            return;
         }
 
         net.minecraft.util.math.vector.Vector3d maxVec = eyePos.add(lookVec.x * range, lookVec.y * range, lookVec.z * range);
@@ -142,8 +140,13 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
 
         Entity targetEntity = result != null ? result.getEntity() : null;
         if (targetEntity != null && !moths.isEmpty()) {
-            for (FossilMothEntity moth : moths) {
-                moth.swarmTo(targetEntity);
+            int swarmPercent = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                    .map(com.babelmoth.rotp_ata.capability.IMothPool::getSwarmAttackCount)
+                    .orElse(30);
+            int maxSwarm = Math.max(1, (int) Math.ceil(moths.size() * swarmPercent / 100.0));
+            int count = Math.min(moths.size(), maxSwarm);
+            for (int i = 0; i < count; i++) {
+                moths.get(i).swarmTo(targetEntity);
             }
         }
     }

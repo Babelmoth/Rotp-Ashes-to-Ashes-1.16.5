@@ -14,6 +14,7 @@ import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 import com.babelmoth.rotp_ata.capability.MothPoolProvider;
+import com.github.standobyte.jojo.init.ModStatusEffects;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
@@ -251,7 +252,8 @@ public class AshesToAshesKineticPiercing extends StandAction {
                 
                 // Fire!
                 net.minecraft.util.math.vector.Vector3d lookDir = user.getViewVector(1.0f);
-                float speed = 2.5f;
+                // Speed boost during Resolve
+                float speed = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 3.5f : 2.5f;
                 moth.piercingFire(lookDir, speed);
                 
                 world.playSound(null, user.getX(), user.getY(), user.getZ(), 

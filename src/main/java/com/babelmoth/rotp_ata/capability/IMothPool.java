@@ -53,6 +53,25 @@ public interface IMothPool extends INBTSerializable<CompoundNBT> {
     
     void tickRecovery(); // Passive recovery over time
 
+    // Deployed Count
+    int getDeployedCount();
+    
+    // Configurable Moth Counts
+    int getOrbitMothCount();
+    void setOrbitMothCount(int count);
+    int getShieldMothCount();
+    void setShieldMothCount(int count);
+    int getSwarmAttackCount();
+    void setSwarmAttackCount(int count);
+    boolean isBarrierPassthrough();
+    void setBarrierPassthrough(boolean passthrough);
+    boolean isAutoChargeShield();
+    void setAutoChargeShield(boolean autoCharge);
+    boolean isRemoteFollow();
+    void setRemoteFollow(boolean remoteFollow);
+    int getRemoteFollowRatio();
+    void setRemoteFollowRatio(int ratio);
+
     // Networking Sync
     void sync(net.minecraft.entity.player.ServerPlayerEntity player);
 }

@@ -24,4 +24,8 @@ public class InitParticles {
     public static final RegistryObject<BasicParticleType> ASH_SMOKE_LARGE = PARTICLES.register(
         "ash_smoke_large", () -> new BasicParticleType(false));
 
+    // Stand resolve aura flame particle (tinted with stand color)
+    public static final RegistryObject<BasicParticleType> STAND_RESOLVE_AURA = PARTICLES.register(
+        "stand_resolve_aura", () -> new BasicParticleType(false));
+
 }

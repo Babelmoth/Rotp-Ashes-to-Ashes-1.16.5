@@ -12,6 +12,15 @@ public class MothPool implements IMothPool {
     private BitSet occupiedSlots = new BitSet(MAX_MOTHS);
     private BitSet deployedSlots = new BitSet(MAX_MOTHS);
     private int recoveryTimer = 0;
+    
+    // Configurable moth counts
+    private int orbitMothCount = 20;
+    private int shieldMothCount = 10;
+    private int swarmAttackCount = 10;
+    private boolean barrierPassthrough = true;
+    private boolean autoChargeShield = false;
+    private boolean remoteFollow = false;
+    private int remoteFollowRatio = 50;
 
     @Override
     public int[] getKineticPool() {
@@ -288,6 +297,40 @@ public class MothPool implements IMothPool {
     }
     
     @Override
+    public int getDeployedCount() {
+        return deployedSlots.cardinality();
+    }
+
+    @Override
+    public int getOrbitMothCount() { return orbitMothCount; }
+    @Override
+    public void setOrbitMothCount(int count) { this.orbitMothCount = Math.max(5, Math.min(50, count)); }
+    @Override
+    public int getShieldMothCount() { return shieldMothCount; }
+    @Override
+    public void setShieldMothCount(int count) { this.shieldMothCount = Math.max(1, Math.min(20, count)); }
+    @Override
+    public int getSwarmAttackCount() { return swarmAttackCount; }
+    @Override
+    public void setSwarmAttackCount(int count) { this.swarmAttackCount = Math.max(1, Math.min(100, count)); }
+    @Override
+    public boolean isBarrierPassthrough() { return barrierPassthrough; }
+    @Override
+    public void setBarrierPassthrough(boolean passthrough) { this.barrierPassthrough = passthrough; }
+    @Override
+    public boolean isAutoChargeShield() { return autoChargeShield; }
+    @Override
+    public void setAutoChargeShield(boolean autoCharge) { this.autoChargeShield = autoCharge; }
+    @Override
+    public boolean isRemoteFollow() { return remoteFollow; }
+    @Override
+    public void setRemoteFollow(boolean remoteFollow) { this.remoteFollow = remoteFollow; }
+    @Override
+    public int getRemoteFollowRatio() { return remoteFollowRatio; }
+    @Override
+    public void setRemoteFollowRatio(int ratio) { this.remoteFollowRatio = Math.max(0, Math.min(100, ratio)); }
+
+    @Override
     public void tickRecovery() {
         if (occupiedSlots.cardinality() < MAX_MOTHS) {
             recoveryTimer++;
@@ -321,6 +364,13 @@ public class MothPool implements IMothPool {
         nbt.putByteArray("OccupiedSlots", occupiedSlots.toByteArray());
         nbt.putByteArray("DeployedSlots", deployedSlots.toByteArray());
         nbt.putInt("RecoveryTimer", recoveryTimer);
+        nbt.putInt("OrbitMothCount", orbitMothCount);
+        nbt.putInt("ShieldMothCount", shieldMothCount);
+        nbt.putInt("SwarmAttackCount", swarmAttackCount);
+        nbt.putBoolean("BarrierPassthrough", barrierPassthrough);
+        nbt.putBoolean("AutoChargeShield", autoChargeShield);
+        nbt.putBoolean("RemoteFollow", remoteFollow);
+        nbt.putInt("RemoteFollowRatio", remoteFollowRatio);
         return nbt;
     }
 
@@ -344,6 +394,13 @@ public class MothPool implements IMothPool {
         }
 
         this.recoveryTimer = nbt.getInt("RecoveryTimer");
+        if (nbt.contains("OrbitMothCount")) this.orbitMothCount = nbt.getInt("OrbitMothCount");
+        if (nbt.contains("ShieldMothCount")) this.shieldMothCount = nbt.getInt("ShieldMothCount");
+        if (nbt.contains("SwarmAttackCount")) this.swarmAttackCount = nbt.getInt("SwarmAttackCount");
+        if (nbt.contains("BarrierPassthrough")) this.barrierPassthrough = nbt.getBoolean("BarrierPassthrough");
+        if (nbt.contains("AutoChargeShield")) this.autoChargeShield = nbt.getBoolean("AutoChargeShield");
+        if (nbt.contains("RemoteFollow")) this.remoteFollow = nbt.getBoolean("RemoteFollow");
+        if (nbt.contains("RemoteFollowRatio")) this.remoteFollowRatio = nbt.getInt("RemoteFollowRatio");
         
         if (this.kineticPool.length != MAX_MOTHS) this.kineticPool = new int[MAX_MOTHS];
         if (this.hamonPool.length != MAX_MOTHS) this.hamonPool = new int[MAX_MOTHS];

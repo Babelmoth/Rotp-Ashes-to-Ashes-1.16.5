@@ -22,6 +22,20 @@ public class AshesToAshesStandEntity extends StandEntity {
     
     private boolean mothsSpawned = false;
     private static final int MOTH_COUNT = AshesToAshesConstants.DEFAULT_MOTH_COUNT;
+    private static final int MOTH_COUNT_RESOLVE = 30;
+
+    /** Returns active moth target count: uses config value, +10 during Resolve. */
+    private int getTargetMothCount() {
+        LivingEntity user = getUser();
+        if (user == null) return MOTH_COUNT;
+        int base = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                .map(com.babelmoth.rotp_ata.capability.IMothPool::getOrbitMothCount)
+                .orElse(MOTH_COUNT);
+        if (user.hasEffect(ModStatusEffects.RESOLVE.get())) {
+            return base + 10;
+        }
+        return base;
+    }
     private int replenishTimer = 0;
     private boolean poolDataChanged = false;
     
@@ -124,6 +138,7 @@ public class AshesToAshesStandEntity extends StandEntity {
             }
             
             tickShieldLogic();
+            tickGuardianLogic();
         }
     }
 
@@ -131,8 +146,9 @@ public class AshesToAshesStandEntity extends StandEntity {
         LivingEntity user = getUser();
         if (user == null) return;
         List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
-        if (freeMoths.size() <= AshesToAshesConstants.DEFAULT_MOTH_COUNT) return;
-        int toRecall = freeMoths.size() - AshesToAshesConstants.DEFAULT_MOTH_COUNT;
+        int targetCount = getTargetMothCount();
+        if (freeMoths.size() <= targetCount) return;
+        int toRecall = freeMoths.size() - targetCount;
         freeMoths.sort(Comparator.comparingDouble(m -> m.distanceToSqr(user)));
         for (int i = freeMoths.size() - 1; i >= freeMoths.size() - toRecall; i--) {
             FossilMothEntity moth = freeMoths.get(i);
@@ -146,10 +162,11 @@ public class AshesToAshesStandEntity extends StandEntity {
 
         int currentSwarmSize = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM).size();
 
-        if (currentSwarmSize < MOTH_COUNT) {
+        int targetCount = getTargetMothCount();
+        if (currentSwarmSize < targetCount) {
             user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                int toSpawn = Math.min(2, MOTH_COUNT - currentSwarmSize);
-                if (toSpawn <= 0 || toSpawn > MOTH_COUNT) return;
+                int toSpawn = Math.min(2, targetCount - currentSwarmSize);
+                if (toSpawn <= 0 || toSpawn > targetCount) return;
                 
                 for (int i = 0; i < toSpawn; i++) {
                     int slot = pool.allocateSlotWithPriority(true);
@@ -162,7 +179,7 @@ public class AshesToAshesStandEntity extends StandEntity {
                     if (slot != -1 && level != null) {
                         FossilMothEntity moth = new FossilMothEntity(level, user);
                         moth.setMothPoolIndex(slot);
-                        moth.setPos(this.getX(), this.getY() + 1.0, this.getZ());
+                        moth.setPos(user.getX(), user.getY() + 1.0, user.getZ());
                         level.addFreshEntity(moth);
                     }
                 }
@@ -175,7 +192,7 @@ public class AshesToAshesStandEntity extends StandEntity {
         LivingEntity user = getUser();
         if (user == null) return;
         
-        FossilMothEntity.spawnMothsForUser(level, user, MOTH_COUNT);
+        FossilMothEntity.spawnMothsForUser(level, user, getTargetMothCount());
     }
     
     // --- Shield Logic ---
@@ -194,6 +211,18 @@ public class AshesToAshesStandEntity extends StandEntity {
         return this.isShieldActive;
     }
 
+    private int getShieldMothCountConfig() {
+        LivingEntity user = getUser();
+        if (user == null) return 10;
+        return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                .map(com.babelmoth.rotp_ata.capability.IMothPool::getShieldMothCount)
+                .orElse(10);
+    }
+
+    private int getGuardianMothCountConfig() {
+        return getShieldMothCountConfig();
+    }
+
     private void tickShieldLogic() {
         LivingEntity user = getUser();
         if (user != null && !com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.isShieldEnabled(user)) {
@@ -206,40 +235,79 @@ public class AshesToAshesStandEntity extends StandEntity {
             return;
         }
         
-        // 1. Maintain Shield Target on Moths
-        // Only target moths that are NOT attached (orbiting)
-        java.util.List<FossilMothEntity> activeMoths = MothQueryUtil.getMothsForSwarm(user, AshesToAshesConstants.QUERY_RADIUS_CHARGING);
-            
-        for (FossilMothEntity moth : activeMoths) {
-            if (moth.getShieldTarget() != user) {
-                moth.setShieldTarget(user, false);
+        java.util.List<FossilMothEntity> shieldMoths = MothQueryUtil.getShieldMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        int shieldCount = shieldMoths.size();
+        
+        int targetShieldCount = getShieldMothCountConfig();
+        if (shieldCount < targetShieldCount) {
+            java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
+            int toRecruit = Math.min(targetShieldCount - shieldCount, freeMoths.size());
+            for (int i = 0; i < toRecruit; i++) {
+                FossilMothEntity moth = freeMoths.get(i);
+                moth.setShieldTarget(user, true);
+                moth.setIsShieldMoth(true);
+                moth.detach();
             }
+        }
+        
+        for (FossilMothEntity moth : shieldMoths) {
             moth.refreshShield();
         }
         
-        // 2. Consume Resources
         if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity)user).isCreative()) {
              com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity)user).ifPresent(power -> {
-                 power.consumeStamina(0.5F); // Moderate active drain per tick
+                 power.consumeStamina(0.5F);
                  if (power.getStamina() <= 0) {
                      com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
                      isShieldActive = false;
                  }
              });
         }
-
-        // 3. Periodic Moth Consumption (Fuel)
-        // Every 5 seconds (100 ticks)
-        shieldConsumptionTimer++;
-        if (shieldConsumptionTimer >= 100) {
-            shieldConsumptionTimer = 0;
-            // Consume 1 moth from pool (Reserve preferred)
-            if (!consumeMoths(1)) {
-                com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
-                isShieldActive = false;
-            } else {
-                poolDataChanged = true;
+    }
+    
+    private void tickGuardianLogic() {
+        LivingEntity user = getUser();
+        if (user == null) return;
+        
+        java.util.List<FossilMothEntity> guardianMoths = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        int guardianCount = guardianMoths.size();
+        if (guardianCount == 0) return;
+        
+        Entity guardianTarget = null;
+        for (FossilMothEntity moth : guardianMoths) {
+            Entity t = moth.getShieldTarget();
+            if (t != null && t.isAlive()) {
+                guardianTarget = t;
+                break;
             }
+        }
+        
+        if (guardianTarget == null) {
+            for (FossilMothEntity moth : guardianMoths) {
+                moth.setShieldTarget(null);
+            }
+            return;
+        }
+        
+        int targetGuardianCount = getGuardianMothCountConfig();
+        if (guardianCount < targetGuardianCount) {
+            Entity nearestSide = user;
+            if (this.isAlive() && guardianTarget.distanceToSqr(this) < guardianTarget.distanceToSqr(user)) {
+                nearestSide = this;
+            }
+            
+            java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMothsAround(user, nearestSide, AshesToAshesConstants.QUERY_RADIUS_SWARM);
+            int toRecruit = Math.min(targetGuardianCount - guardianCount, freeMoths.size());
+            for (int i = 0; i < toRecruit; i++) {
+                FossilMothEntity moth = freeMoths.get(i);
+                moth.setShieldTarget(guardianTarget, true);
+                moth.setIsShieldMoth(false);
+                moth.detach();
+            }
+        }
+        
+        for (FossilMothEntity moth : guardianMoths) {
+            moth.refreshShield();
         }
     }
 

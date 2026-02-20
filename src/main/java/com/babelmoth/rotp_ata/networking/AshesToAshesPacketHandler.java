@@ -43,6 +43,18 @@ public class AshesToAshesPacketHandler {
             .consumer(SpearThornSyncPacket::handle)
             .add();
 
+        CHANNEL.messageBuilder(OpenMothConfigScreenPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+            .encoder(OpenMothConfigScreenPacket::encode)
+            .decoder(OpenMothConfigScreenPacket::decode)
+            .consumer(OpenMothConfigScreenPacket::handle)
+            .add();
+
+        CHANNEL.messageBuilder(MothConfigUpdatePacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+            .encoder(MothConfigUpdatePacket::encode)
+            .decoder(MothConfigUpdatePacket::decode)
+            .consumer(MothConfigUpdatePacket::handle)
+            .add();
+
     }
 
     public static void sendToClient(Object packet, ServerPlayerEntity player) {

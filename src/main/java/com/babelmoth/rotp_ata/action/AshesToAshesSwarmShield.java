@@ -22,8 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Kinetic swarm shield: toggle-style action similar to kinetic sensing.
- * Forces full stand manifestation when used while unsummoned and auto-disables when the stand is recalled.
+ * Toggle-style swarm shield action. Auto-summons stand if needed, auto-disables on recall.
  */
 public class AshesToAshesSwarmShield extends StandAction {
 
@@ -86,11 +85,10 @@ public class AshesToAshesSwarmShield extends StandAction {
     }
 
     private static void clearOwnerMothsShieldTarget(World world, LivingEntity owner) {
-        List<FossilMothEntity> moths = MothQueryUtil.getOwnerMoths(owner, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        List<FossilMothEntity> moths = MothQueryUtil.getShieldMoths(owner, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         for (FossilMothEntity moth : moths) {
-            if (moth.getShieldTarget() == owner && !moth.isShieldPersistent()) {
-                moth.setShieldTarget(null);
-            }
+            moth.setIsShieldMoth(false);
+            moth.setShieldTarget(null);
         }
     }
 
@@ -103,7 +101,7 @@ public class AshesToAshesSwarmShield extends StandAction {
         shieldStateMap.remove(userId);
     }
 
-    /** Turn off shield and clear non-persistent shield targets (used when stamina/moths are exhausted or stand is unsummoned). */
+    /** Turn off shield and clear shield targets. */
     public static void turnOffShieldForUser(World world, LivingEntity user) {
         if (user != null) {
             shieldStateMap.remove(user.getUUID());
@@ -113,11 +111,10 @@ public class AshesToAshesSwarmShield extends StandAction {
 
     public static void clearOwnerMothsShieldTargetForUser(World world, LivingEntity owner) {
         if (world == null || owner == null) return;
-        List<FossilMothEntity> moths = MothQueryUtil.getOwnerMoths(owner, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        List<FossilMothEntity> moths = MothQueryUtil.getShieldMoths(owner, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         for (FossilMothEntity moth : moths) {
-            if (moth.getShieldTarget() == owner && !moth.isShieldPersistent()) {
-                moth.setShieldTarget(null);
-            }
+            moth.setIsShieldMoth(false);
+            moth.setShieldTarget(null);
         }
     }
 }

@@ -99,6 +99,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public static final DataParameter<Float> PIERCING_SPEED = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.FLOAT);
     public static final DataParameter<Boolean> IS_BULLET = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     public static final DataParameter<Boolean> KINETIC_SENSING_ENABLED = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
+    public static final DataParameter<Boolean> IS_SHIELD_MOTH = EntityDataManager.defineId(FossilMothEntity.class, DataSerializers.BOOLEAN);
     private long lastShieldTick = 0;
     /** Moth bite: next game tick at which this moth is allowed to participate in a bite (server-side only). */
     private long mothBiteCooldownUntilTick = 0L;
@@ -258,6 +259,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.entityData.define(PIERCING_SPEED, 0.0f);
         this.entityData.define(IS_BULLET, false);
         this.entityData.define(KINETIC_SENSING_ENABLED, false);
+        this.entityData.define(IS_SHIELD_MOTH, false);
     }
     
     // Piercing/Bullet Accessors
@@ -388,6 +390,14 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     
     public boolean isShieldPersistent() {
         return this.entityData.get(IS_SHIELD_PERSISTENT);
+    }
+    
+    public boolean isShieldMoth() {
+        return this.entityData.get(IS_SHIELD_MOTH);
+    }
+    
+    public void setIsShieldMoth(boolean value) {
+        this.entityData.set(IS_SHIELD_MOTH, value);
     }
     
     public int getHamonEnergy() {
@@ -1295,11 +1305,27 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                     return;
                 }
                 
-                // Remote control follow logic
                 if (power.getStandManifestation() instanceof StandEntity) {
                     StandEntity standEntity = (StandEntity) power.getStandManifestation();
                     
-                    if (standEntity.isRemotePositionFixed()) {
+                    boolean shouldFollowStand = false;
+                    if (standEntity.isManuallyControlled() || standEntity.isRemotePositionFixed()) {
+                        boolean remoteFollowEnabled = owner.getCapability(
+                                com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                                .map(com.babelmoth.rotp_ata.capability.IMothPool::isRemoteFollow).orElse(false);
+                        if (remoteFollowEnabled && mothPoolIndex >= 0) {
+                            int ratio = owner.getCapability(
+                                    com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                                    .map(com.babelmoth.rotp_ata.capability.IMothPool::getRemoteFollowRatio).orElse(50);
+                            int orbitCount = owner.getCapability(
+                                    com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                                    .map(com.babelmoth.rotp_ata.capability.IMothPool::getOrbitMothCount).orElse(20);
+                            int followCount = Math.max(1, orbitCount * ratio / 100);
+                            shouldFollowStand = (mothPoolIndex % orbitCount) < followCount;
+                        }
+                    }
+                    
+                    if (shouldFollowStand && standEntity.isRemotePositionFixed()) {
                         if (!isStaying) {
                             stayX = standEntity.getX() + (random.nextDouble() - 0.5) * 2;
                             stayY = standEntity.getY() + 1 + random.nextDouble() * 1.5;
@@ -1311,7 +1337,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                         double navZ = stayZ + (random.nextDouble() - 0.5) * 1.5;
                         this.navigation.moveTo(navX, navY, navZ, 0.5);
                         
-                    } else if (standEntity.isManuallyControlled()) {
+                    } else if (shouldFollowStand && standEntity.isManuallyControlled()) {
                         isStaying = false;
                         double navX = standEntity.getX() + (random.nextDouble() - 0.5) * 2;
                         double navY = standEntity.getY() + 1 + random.nextDouble() * 1.5;
@@ -1319,7 +1345,6 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                         this.navigation.moveTo(navX, navY, navZ, 1.2);
                         
                     } else {
-                        // Follow owner mode (stand not remote-controlled)
                         isStaying = false;
                         double navX = owner.getX() + (random.nextDouble() - 0.5) * 2.5;
                         double navY = owner.getY() + 1 + random.nextDouble() * 1.5;
@@ -1329,8 +1354,6 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                     
                     if (!isStaying) {
                         float maxRange = (float) standEntity.getMaxRange() * 2;
-                        // Distance Culling: If too far, return to pool (Reserve)
-                        // Using stricter range (64 blocks as per plan) or dynamic based on stand range
                         double cullRange = Math.max(64.0, maxRange + 32.0);
                         
                         if (this.distanceTo(owner) > cullRange) {
@@ -1664,20 +1687,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public void detonateKinetic() {
         if (this.level.isClientSide) return;
         
-        // Check if this moth has Hamon energy for Hamon damage
         boolean useHamon = getHamonEnergy() > 0;
-        
-        // Use total energy for effect calculation
         float chargeRatio = (float)getTotalEnergy() / (float)getMaxEnergy();
-        // Refined: Radius 0.5-2.0, Damage 1-8 (Nerfed for Swarm Balance)
-        float radius = 0.5f + 1.5f * chargeRatio;
-        float damage = 1.0f + 7.0f * chargeRatio;
-        float knockbackStrength = 0.5f + 1.5f * chargeRatio;
-        
-        // 1. Visual Explosion (No Block Damage)
+        float radius = 0.2f + 0.6f * chargeRatio;
+        float damage = 0.3f + 2.2f * chargeRatio;
         this.level.explode(this, this.getX(), this.getY(), this.getZ(), radius, Explosion.Mode.NONE);
         
-        // Spawn Fossil Ash Particles (or Hamon sparks if using Hamon)
         if (this.level instanceof net.minecraft.world.server.ServerWorld) {
             net.minecraft.world.server.ServerWorld serverWorld = (net.minecraft.world.server.ServerWorld) this.level;
             int particleCount = 20 + (int)(30 * chargeRatio);
@@ -1689,7 +1704,6 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                 double vy = this.random.nextDouble() * 0.3;
                 double vz = (this.random.nextDouble() - 0.5) * 0.5;
                 if (useHamon) {
-                    // Hamon spark particles
                     serverWorld.sendParticles(com.github.standobyte.jojo.init.ModParticles.HAMON_SPARK.get(), px, py, pz, 1, vx, vy, vz, 0.1);
                 } else {
                     serverWorld.sendParticles(com.babelmoth.rotp_ata.init.InitParticles.FOSSIL_ASH.get(), px, py, pz, 1, vx, vy, vz, 0.1);
@@ -1697,7 +1711,6 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             }
         }
         
-        // 2. Heavy Knockback & Damage Application
         List<LivingEntity> targets = this.level.getEntitiesOfClass(LivingEntity.class, this.getBoundingBox().inflate(radius + 1.0));
         LivingEntity owner = getOwner();
         
@@ -1712,25 +1725,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
             
             float actualDamage = damage * distRatio;
             
-            // Apply damage (always explosion damage first)
             boolean hurt = target.hurt(DamageSource.explosion(this instanceof LivingEntity ? (LivingEntity)this : owner), actualDamage);
             
-            // Add small bonus Hamon damage if moth had Hamon energy
             if (hurt && useHamon) {
                 com.github.standobyte.jojo.util.mc.damage.DamageUtil.dealHamonDamage(target, 0.5F, this, owner);
             }
             
-            if (hurt) {
-                net.minecraft.util.math.vector.Vector3d knockbackDir = target.position().subtract(this.position()).normalize();
-                
-                com.github.standobyte.jojo.util.mc.damage.DamageUtil.knockback(target, knockbackStrength, 
-                        (float) -Math.atan2(knockbackDir.x, knockbackDir.z) * (180F / (float)Math.PI));
-                        
-                com.github.standobyte.jojo.util.mc.damage.KnockbackCollisionImpact.getHandler(target).ifPresent(cap -> cap
-                     .onPunchSetKnockbackImpact(knockbackDir.scale(knockbackStrength), owner instanceof LivingEntity ? (LivingEntity)owner : null)
-                     .withImpactExplosion(1.2f, null, actualDamage * 0.5f)
-                 );
-            }
         }
         
         this.remove();
