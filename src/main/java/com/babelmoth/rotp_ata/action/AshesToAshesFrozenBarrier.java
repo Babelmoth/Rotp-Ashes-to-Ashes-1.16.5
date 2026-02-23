@@ -33,10 +33,12 @@ public class AshesToAshesFrozenBarrier extends StandAction {
     }
 
     @Override
+    public TargetRequirement getTargetRequirement() {
+        return TargetRequirement.BLOCK;
+    }
+
+    @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        if (target.getType() != ActionTarget.TargetType.BLOCK) {
-            return conditionMessage("block_target");
-        }
         boolean hasSlots = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY)
             .map(pool -> pool.getTotalMoths() + MOTHS_PER_BARRIER <= IMothPool.MAX_MOTHS)
             .orElse(false);

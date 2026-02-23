@@ -34,6 +34,7 @@ import java.util.UUID;
 
 public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements IEntityAdditionalSpawnData {
     private static final DataParameter<Boolean> DATA_RECALLED = EntityDataManager.defineId(ThelaHunGinjeetSpearEntity.class, DataSerializers.BOOLEAN);
+    private static final DataParameter<Integer> DATA_OWNER_ID = EntityDataManager.defineId(ThelaHunGinjeetSpearEntity.class, DataSerializers.INT);
 
     private ItemStack spearItem = ItemStack.EMPTY;
     private int returningTicks = 0;
@@ -44,6 +45,8 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
     private int stuckTargetId = -1;
     // 召回时忽略的实体ID（防止从目标身上召回后立即重新命中同一目标）
     private int recallIgnoreEntityId = -1;
+    // 召回后攻击冷却（防止刚收回时重复攻击附近实体）
+    private int recallGraceTicks = 0;
 
     public ThelaHunGinjeetSpearEntity(EntityType<? extends ThelaHunGinjeetSpearEntity> type, World world) {
         super(type, world);
@@ -56,12 +59,16 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
     public ThelaHunGinjeetSpearEntity(World world, LivingEntity owner, ItemStack spearItem) {
         super(InitEntities.THELA_HUN_GINJEET_SPEAR_ENTITY.get(), owner, world);
         this.spearItem = spearItem == null ? ItemStack.EMPTY : spearItem.copy();
+        if (owner != null) {
+            this.entityData.set(DATA_OWNER_ID, owner.getId());
+        }
     }
 
     @Override
     protected void defineSynchedData() {
         super.defineSynchedData();
         this.entityData.define(DATA_RECALLED, false);
+        this.entityData.define(DATA_OWNER_ID, -1);
     }
 
     public ItemStack getSpearItem() {
@@ -88,6 +95,7 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
 
             // 记录原始目标，召回飞行中跳过该实体
             this.recallIgnoreEntityId = this.stuckTargetId;
+            this.recallGraceTicks = 30; // 1.5秒内不攻击实体
             // 减少目标的 stuck count，清除荆棘数据，并将长矛移到目标当前位置
             if (!level.isClientSide && stuckTargetId >= 0) {
                 Entity target = level.getEntity(stuckTargetId);
@@ -173,8 +181,13 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             Vector3d oldPos = position();
             this.setPos(getX() + motion.x, getY() + motion.y, getZ() + motion.z);
 
+            // 收回冷却期间不检测实体碰撞
+            if (recallGraceTicks > 0) {
+                recallGraceTicks--;
+            }
+
             // 手动检测飞回路径上的实体碰撞（noPhysics=true 跳过了 super.tick 的碰撞）
-            if (!level.isClientSide) {
+            if (!level.isClientSide && recallGraceTicks <= 0) {
                 net.minecraft.util.math.AxisAlignedBB sweepBox = getBoundingBox().expandTowards(motion).inflate(1.0);
                 final int ignoreId = this.recallIgnoreEntityId;
                 for (Entity candidate : level.getEntities(this, sweepBox,
@@ -184,47 +197,54 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
                     if (distSq > 4.0) continue;
 
                     LivingEntity hitTarget = (LivingEntity) candidate;
-                    // 解析追踪目标：替身实体→其主人
-                    LivingEntity tickTrackTarget = resolveTrackingTarget(hitTarget);
-
-                    // 停止飞回，插入目标
-                    setRecalled(false);
-                    setNoGravity(true);
-                    noPhysics = false;
-
-                    if (tickTrackTarget != null) {
-                        incrementStuckCount(tickTrackTarget);
-                        this.stuckTargetUUID = tickTrackTarget.getUUID();
-                        this.stuckTargetId = tickTrackTarget.getId();
-                    }
-
-                    this.setInvisible(true);
-                    setDeltaMovement(Vector3d.ZERO);
-                    this.setPos(hitTarget.getX(), hitTarget.getY() + hitTarget.getBbHeight() * 0.5, hitTarget.getZ());
-                    this.inGround = false;
-                    this.pickup = PickupStatus.DISALLOWED;
+                    // 解析荆棘目标：替身实体→其主人（治疗效果根据本体血量计算）
+                    LivingEntity tickThornTarget = resolveTrackingTarget(hitTarget);
 
                     float damage = getStandScaledDamage(owner);
                     // 附魔加成
                     damage += SpearEnchantHelper.getTotalBonusDamage(spearItem, hitTarget);
                     SpearEnchantHelper.applyFireAspect(spearItem, hitTarget);
+
+                    // 先造成伤害，再根据实际伤害判断是否插入
+                    float healthBefore = hitTarget.getHealth();
                     hitTarget.hurt(createSpearDamageSource(owner), damage);
+                    float actualDmg = Math.max(0, healthBefore - hitTarget.getHealth());
                     level.playSound(null, hitTarget.getX(), hitTarget.getY(), hitTarget.getZ(),
                             SoundEvents.TRIDENT_HIT, net.minecraft.util.SoundCategory.PLAYERS, 1.0F, 1.0F);
 
-                    // 初始化荆棘系统（基于追踪目标，非替身实体）
-                    if (tickTrackTarget != null) {
-                        final float finalDmgRecall = damage;
-                        tickTrackTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
-                            cap.setHasSpear(true);
-                            cap.setDamageDealt(0);
-                            cap.setDetachThreshold(cap.getThornCount() + finalDmgRecall);
-                            syncThornData(tickTrackTarget, cap);
-                        });
-                    }
+                    // 伤害低于正常伤害20%时不触发插入效果，长矛继续飞回
+                    if (actualDmg >= damage * 0.2F) {
+                        // 停止飞回，插入目标（直接使用命中实体，替身攻击时效果仍在替身身上）
+                        setRecalled(false);
+                        setNoGravity(true);
+                        noPhysics = false;
 
-                    this.baseTick();
-                    return;
+                        incrementStuckCount(hitTarget);
+                        this.stuckTargetUUID = hitTarget.getUUID();
+                        this.stuckTargetId = hitTarget.getId();
+
+                        this.setInvisible(true);
+                        setDeltaMovement(Vector3d.ZERO);
+                        this.setPos(hitTarget.getX(), hitTarget.getY() + hitTarget.getBbHeight() * 0.5, hitTarget.getZ());
+                        this.inGround = false;
+                        this.pickup = PickupStatus.DISALLOWED;
+
+                        // 初始化荆棘系统（基于本体血量，非替身实体）
+                        if (tickThornTarget != null) {
+                            final float finalDmgRecall = damage;
+                            tickThornTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                                cap.setHasSpear(true);
+                                cap.setDamageDealt(0);
+                                cap.setDetachThreshold(cap.getThornCount() + finalDmgRecall);
+                                syncThornData(tickThornTarget, cap);
+                            });
+                        }
+
+                        this.baseTick();
+                        return;
+                    }
+                    // 伤害不足：不插入，继续飞回（已造成伤害但不停留）
+                    break;
                 }
             }
 
@@ -300,33 +320,18 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
 
         // 飞回时命中实体：造成伤害并触发插入效果（与正常投掷相同）
         if (isRecalled()) {
+            // 冷却期间不攻击
+            if (recallGraceTicks > 0) return;
             Entity hitEntity = result.getEntity();
             if (hitEntity == null) return;
             Entity owner = getOwner();
             // 收回时不攻击长矛主人及其替身
             if (isOwnerOrOwnersStand(hitEntity, owner)) return;
 
-            // 解析追踪目标：替身实体→其主人
-            LivingEntity recallTrackTarget = resolveTrackingTarget(hitEntity);
-
-            if (!level.isClientSide) {
-                // 停止飞回，插入目标
-                setRecalled(false);
-                setNoGravity(true);
-                noPhysics = false;
-
-                if (recallTrackTarget != null) {
-                    incrementStuckCount(recallTrackTarget);
-                    this.stuckTargetUUID = recallTrackTarget.getUUID();
-                    this.stuckTargetId = recallTrackTarget.getId();
-                }
-
-                this.setInvisible(true);
-                setDeltaMovement(Vector3d.ZERO);
-                this.setPos(hitEntity.getX(), hitEntity.getY() + hitEntity.getBbHeight() * 0.5, hitEntity.getZ());
-                this.inGround = false;
-                this.pickup = PickupStatus.DISALLOWED;
-            }
+            // 解析荆棘目标：替身实体→其主人（治疗效果根据本体血量计算）
+            LivingEntity recallThornTarget = resolveTrackingTarget(hitEntity);
+            // 插入目标：直接使用命中实体（替身攻击时其他效果仍在替身身上）
+            LivingEntity recallStickTarget = hitEntity instanceof LivingEntity ? (LivingEntity) hitEntity : recallThornTarget;
 
             float damage = getStandScaledDamage(owner);
             // 附魔加成
@@ -334,18 +339,44 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
                 damage += SpearEnchantHelper.getTotalBonusDamage(spearItem, (LivingEntity) hitEntity);
                 SpearEnchantHelper.applyFireAspect(spearItem, (LivingEntity) hitEntity);
             }
+
+            // 先造成伤害，再根据实际伤害判断是否插入
+            float healthBefore = hitEntity instanceof LivingEntity ? ((LivingEntity) hitEntity).getHealth() : 0;
             hitEntity.hurt(createSpearDamageSource(owner), damage);
+            float actualDmg = hitEntity instanceof LivingEntity
+                    ? Math.max(0, healthBefore - ((LivingEntity) hitEntity).getHealth()) : damage;
             playSound(SoundEvents.TRIDENT_HIT, 1.0F, 1.0F);
 
-            // 初始化荆棘系统（基于追踪目标，非替身实体）
-            if (!level.isClientSide && recallTrackTarget != null) {
-                final float finalDmg = damage;
-                recallTrackTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
-                    cap.setHasSpear(true);
-                    cap.setDamageDealt(0);
-                    cap.setDetachThreshold(cap.getThornCount() + finalDmg);
-                    syncThornData(recallTrackTarget, cap);
-                });
+            // 伤害低于正常伤害20%时不触发插入效果，长矛继续飞回
+            boolean shouldStick = actualDmg >= damage * 0.2F;
+            if (shouldStick && !level.isClientSide) {
+                // 停止飞回，插入目标
+                setRecalled(false);
+                setNoGravity(true);
+                noPhysics = false;
+
+                if (recallStickTarget != null) {
+                    incrementStuckCount(recallStickTarget);
+                    this.stuckTargetUUID = recallStickTarget.getUUID();
+                    this.stuckTargetId = recallStickTarget.getId();
+                }
+
+                this.setInvisible(true);
+                setDeltaMovement(Vector3d.ZERO);
+                this.setPos(hitEntity.getX(), hitEntity.getY() + hitEntity.getBbHeight() * 0.5, hitEntity.getZ());
+                this.inGround = false;
+                this.pickup = PickupStatus.DISALLOWED;
+
+                // 初始化荆棘系统（基于本体血量，非替身实体）
+                if (recallThornTarget != null) {
+                    final float finalDmg = damage;
+                    recallThornTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                        cap.setHasSpear(true);
+                        cap.setDamageDealt(0);
+                        cap.setDetachThreshold(cap.getThornCount() + finalDmg);
+                        syncThornData(recallThornTarget, cap);
+                    });
+                }
             }
             return;
         }
@@ -355,24 +386,10 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
         if (hitEntity == null) return;
         Entity owner = getOwner();
 
-        // 解析追踪目标：替身实体→其主人，避免替身血量同步导致的循环bug
-        LivingEntity trackingTarget = resolveTrackingTarget(hitEntity);
-
-        if (!level.isClientSide) {
-            // 先处理插入逻辑（在 hurt 之前，防止目标死亡导致跳过）
-            if (trackingTarget != null) {
-                incrementStuckCount(trackingTarget);
-                this.stuckTargetUUID = trackingTarget.getUUID();
-                this.stuckTargetId = trackingTarget.getId();
-            }
-
-            // 长矛变不可见（视觉效果由 SpearStuckLayer 负责）
-            this.setInvisible(true);
-            setDeltaMovement(Vector3d.ZERO);
-            this.setPos(hitEntity.getX(), hitEntity.getY() + hitEntity.getBbHeight() * 0.5, hitEntity.getZ());
-            this.inGround = false;
-            this.pickup = PickupStatus.DISALLOWED;
-        }
+        // 解析荆棘目标：替身实体→其主人（治疗效果根据本体血量计算）
+        LivingEntity thornTarget = resolveTrackingTarget(hitEntity);
+        // 插入目标：直接使用命中实体（替身攻击时其他效果仍在替身身上）
+        LivingEntity stickTarget = hitEntity instanceof LivingEntity ? (LivingEntity) hitEntity : thornTarget;
 
         float damage = getStandScaledDamage(owner);
         // 附魔加成
@@ -380,10 +397,15 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             damage += SpearEnchantHelper.getTotalBonusDamage(spearItem, (LivingEntity) hitEntity);
             SpearEnchantHelper.applyFireAspect(spearItem, (LivingEntity) hitEntity);
         }
+
+        // 先造成伤害，再根据实际伤害判断是否插入
+        float healthBefore = hitEntity instanceof LivingEntity ? ((LivingEntity) hitEntity).getHealth() : 0;
         hitEntity.hurt(createSpearDamageSource(owner), damage);
+        float actualDmg = hitEntity instanceof LivingEntity
+                ? Math.max(0, healthBefore - ((LivingEntity) hitEntity).getHealth()) : damage;
         playSound(SoundEvents.TRIDENT_HIT, 1.0F, 1.0F);
 
-        // 引雷附魔：命中时召唤闪电
+        // 引雷附魔：命中时召唤闪电（无论是否插入都触发）
         if (!level.isClientSide && SpearEnchantHelper.getChannelingLevel(spearItem) > 0
                 && level instanceof ServerWorld && hitEntity instanceof LivingEntity) {
             if (level.canSeeSky(hitEntity.blockPosition())) {
@@ -396,15 +418,32 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             }
         }
 
-        // 初始化荆棘系统（基于追踪目标，非替身实体）
-        if (!level.isClientSide && trackingTarget != null) {
-            final float finalDmg = damage;
-            trackingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
-                cap.setHasSpear(true);
-                cap.setDamageDealt(0);
-                cap.setDetachThreshold(cap.getThornCount() + finalDmg);
-                syncThornData(trackingTarget, cap);
-            });
+        // 伤害低于正常伤害20%时不触发插入效果
+        boolean shouldStick = actualDmg >= damage * 0.2F;
+        if (shouldStick && !level.isClientSide) {
+            if (stickTarget != null) {
+                incrementStuckCount(stickTarget);
+                this.stuckTargetUUID = stickTarget.getUUID();
+                this.stuckTargetId = stickTarget.getId();
+            }
+
+            // 长矛变不可见（视觉效果由 SpearStuckLayer 负责）
+            this.setInvisible(true);
+            setDeltaMovement(Vector3d.ZERO);
+            this.setPos(hitEntity.getX(), hitEntity.getY() + hitEntity.getBbHeight() * 0.5, hitEntity.getZ());
+            this.inGround = false;
+            this.pickup = PickupStatus.DISALLOWED;
+
+            // 初始化荆棘系统（基于本体血量，非替身实体）
+            if (thornTarget != null) {
+                final float finalDmg = damage;
+                thornTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                    cap.setHasSpear(true);
+                    cap.setDamageDealt(0);
+                    cap.setDetachThreshold(cap.getThornCount() + finalDmg);
+                    syncThornData(thornTarget, cap);
+                });
+            }
         }
     }
 
@@ -454,7 +493,8 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
     }
 
     /**
-     * 如果命中的是替身实体，返回其主人用于stuck/thorn追踪，避免替身血量同步导致的循环bug
+     * 如果命中的是替身实体，返回其主人用于荆棘/禁疗追踪（治疗效果根据本体血量计算）
+     * 插入效果（stuck）直接在命中实体上，荆棘系统在本体上
      */
     private LivingEntity resolveTrackingTarget(Entity hitEntity) {
         if (hitEntity instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
@@ -532,11 +572,25 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
 
     @Override
     public boolean isGlowing() {
-        // Non-burst spears always glow (only visible to stand users via shouldRender)
+        // Non-burst spears glow only for their owner
         if (!burstMode) {
+            if (level.isClientSide) {
+                return isLocalPlayerOwner();
+            }
             return true;
         }
         return super.isGlowing();
+    }
+
+    /**
+     * 客户端判断：本地玩家是否为长矛拥有者（用于发光仅拥有者可见）
+     */
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    private boolean isLocalPlayerOwner() {
+        net.minecraft.entity.player.PlayerEntity localPlayer = net.minecraft.client.Minecraft.getInstance().player;
+        if (localPlayer == null) return false;
+        int ownerId = this.entityData.get(DATA_OWNER_ID);
+        return ownerId >= 0 && ownerId == localPlayer.getId();
     }
 
     @Override
@@ -613,6 +667,11 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             stuckTargetId = -1;
             setNoGravity(true);
             setInvisible(true);
+        }
+        // 恢复 owner entity ID 用于客户端发光判断
+        Entity owner = getOwner();
+        if (owner != null) {
+            this.entityData.set(DATA_OWNER_ID, owner.getId());
         }
     }
 }

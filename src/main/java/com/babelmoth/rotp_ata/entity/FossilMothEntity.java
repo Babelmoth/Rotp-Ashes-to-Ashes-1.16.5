@@ -370,6 +370,10 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
     public void swarmTo(Entity target) {
         this.entityData.set(SWARM_TARGET_ID, target.getId());
     }
+
+    public boolean isSwarming() {
+        return this.entityData.get(SWARM_TARGET_ID) != -1;
+    }
     
     public void setShieldTarget(Entity target) {
         setShieldTarget(target, false);
@@ -449,8 +453,12 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         int maxEnergy = getMaxEnergy();
         float ratio = (float) energy / maxEnergy;
         
-        // HP: 5 -> 50, Armor: 2 -> 20, Toughness: 0 -> 5
-        double newHealth = 5.0 + 45.0 * ratio;
+        // HP仅根据波纹能量缩放，动能不影响血量
+        int hamonEnergy = getHamonEnergy();
+        float hamonRatio = (float) hamonEnergy / maxEnergy;
+        double newHealth = 5.0 + 45.0 * hamonRatio;
+        
+        // Armor, Toughness, Speed: 使用总能量（动能+波纹）
         double newArmor = 2.0 + 18.0 * ratio;
         double newToughness = 5.0 * ratio;
         double newSpeed = 0.4 - 0.2 * ratio; // Ground speed
@@ -462,9 +470,7 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(newSpeed);
         this.getAttribute(Attributes.FLYING_SPEED).setBaseValue(newFlySpeed);
         
-        // Heal relative to ratio if needed, or just set? For now just set max.
         // If current health > new max, clamp it.
-        // If growing, maybe heal?
         if (this.getHealth() > newHealth) {
             this.setHealth((float)newHealth);
         }
@@ -563,8 +569,10 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         }
         
         // Physical damage absorption logic.
-        // Excludes: fall (already immune), void, command kill, magic (potions), hunger, suffocation.
-        if (!source.isBypassArmor() && !source.isMagic() && source != DamageSource.OUT_OF_WORLD) {
+        // Includes: melee, projectile, fall, explosion. Excludes: void, magic (potions), hunger, suffocation.
+        boolean isFall = source == DamageSource.FALL;
+        boolean isExplosion = source.isExplosion();
+        if (isFall || isExplosion || (!source.isBypassArmor() && !source.isMagic() && source != DamageSource.OUT_OF_WORLD)) {
             int currentEnergy = getKineticEnergy();
             int max = getMaxEnergy();
             
@@ -1353,10 +1361,9 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
                     }
                     
                     if (!isStaying) {
-                        float maxRange = (float) standEntity.getMaxRange() * 2;
-                        double cullRange = Math.max(64.0, maxRange + 32.0);
+                        float maxRange = (float) standEntity.getMaxRange();
                         
-                        if (this.distanceTo(owner) > cullRange) {
+                        if (this.distanceTo(owner) > maxRange) {
                             this.remove(); // Triggers pool.recallMoth -> Data saved in reserve
                         }
                     }
@@ -1401,8 +1408,14 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.playHurtSound(source);
     }
 
+    private boolean forceVisibleForAll = false;
+
+    public void setForceVisibleForAll(boolean value) {
+        this.forceVisibleForAll = value;
+    }
+
     public boolean isVisibleForAll() {
-        return false;
+        return forceVisibleForAll;
     }
 
     @Override
@@ -1736,28 +1749,64 @@ public class FossilMothEntity extends TameableEntity implements IFlyingAnimal, I
         this.remove();
     }
     
+    // Flag to prevent double-detonation when grouped
+    private boolean exfoliatingDetonated = false;
+
     public void detonateExfoliating() {
-        if (this.level.isClientSide) return;
-        
-        ExfoliatingAshCloudEntity cloud = new ExfoliatingAshCloudEntity(this.level, this.getX(), this.getY(), this.getZ());
-        cloud.setOwner(getOwner());
-        
-        // Use total energy for effect calculation
-        float chargeRatio = (float)getTotalEnergy() / (float)getMaxEnergy();
-        // Refined: Duration 10s-30s
-        int duration = 200 + (int)(400 * chargeRatio);
-        cloud.setDuration(duration);
-        
-        // Radius: 3-10 blocks
-        float radius = 3.0f + 7.0f * chargeRatio;
-        cloud.setRadius(radius);
-        
-        // Mark cloud as Hamon-infused if moth had Hamon energy
-        if (getHamonEnergy() > 0) {
-            cloud.setHamonInfused(true);
+        if (this.level.isClientSide || exfoliatingDetonated) return;
+        exfoliatingDetonated = true;
+
+        // Detect nearby moths also detonating within 8 blocks
+        double groupRadius = 8.0;
+        java.util.List<FossilMothEntity> nearbyMoths = this.level.getEntitiesOfClass(
+                FossilMothEntity.class,
+                this.getBoundingBox().inflate(groupRadius),
+                m -> m != this && m.getOwner() == this.getOwner()
+                        && !m.exfoliatingDetonated && m.isAlive());
+
+        // Mark all grouped moths as detonated and collect their energy
+        int totalEnergy = getTotalEnergy();
+        int maxEnergy = getMaxEnergy();
+        boolean hasHamon = getHamonEnergy() > 0;
+        double cx = this.getX(), cy = this.getY(), cz = this.getZ();
+        int mothCount = 1;
+
+        for (FossilMothEntity moth : nearbyMoths) {
+            moth.exfoliatingDetonated = true;
+            totalEnergy += moth.getTotalEnergy();
+            if (moth.getHamonEnergy() > 0) hasHamon = true;
+            cx += moth.getX();
+            cy += moth.getY();
+            cz += moth.getZ();
+            mothCount++;
         }
-        
+
+        // Average position as cloud center
+        cx /= mothCount;
+        cy /= mothCount;
+        cz /= mothCount;
+
+        // Single moth: greatly weakened. More moths = stronger effect.
+        float avgChargeRatio = (float) totalEnergy / (float) (mothCount * maxEnergy);
+        // Base radius: 1.5 (single moth) scaling up with moth count
+        float radius = 1.5f + (mothCount - 1) * 1.5f * avgChargeRatio;
+        radius = Math.min(radius, 12.0f);
+        // Base duration: 100 ticks (5s, single moth) scaling with moth count
+        int duration = 100 + (int) ((mothCount - 1) * 100 * avgChargeRatio);
+        duration = Math.min(duration, 600);
+
+        // Spawn one cloud entity
+        ExfoliatingAshCloudEntity cloud = new ExfoliatingAshCloudEntity(this.level, cx, cy, cz);
+        cloud.setOwner(getOwner());
+        cloud.setDuration(duration);
+        cloud.setRadius(radius);
+        if (hasHamon) cloud.setHamonInfused(true);
         this.level.addFreshEntity(cloud);
+
+        // Remove all participating moths
+        for (FossilMothEntity moth : nearbyMoths) {
+            moth.remove();
+        }
         this.remove();
     }
 

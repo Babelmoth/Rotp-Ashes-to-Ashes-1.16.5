@@ -21,7 +21,7 @@ mixin {
 
 version = "${addon_version}"
 group = 'com.babelmoth.rotp_ata' // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = 'RotP-Ashes-to-Ashes'
+archivesBaseName = 'RotP_Recording'
 
 // Configure Java toolchain to use JDK 8
 java.toolchain.languageVersion = JavaLanguageVersion.of(8) // Mojang ships Java 8 to end users, so your mod should target Java 8.
@@ -174,9 +174,9 @@ jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
         attributes([
-            "Specification-Title": "RotP_Ashes_to_Ashes",
+            "Specification-Title": "RotP_Recording",
             "Specification-Vendor": "RotP_BCBabelmoth",
-            "Specification-Version": "0.1", // We are version 1 of ourselves
+            "Specification-Version": "0.1.1", // We are version 1 of ourselves
             "Implementation-Title": project.name,
             "Implementation-Version": "${version}",
             "Implementation-Vendor" :"RotP_BCBabelmoth",

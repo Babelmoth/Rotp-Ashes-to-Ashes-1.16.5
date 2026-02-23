@@ -147,6 +147,7 @@ public class MothQueryUtil {
         return MCUtil.entitiesAround(FossilMothEntity.class, viewCenter, radius, false,
             moth -> moth.getOwner() == owner && !moth.isAttached() && !moth.isAttachedToEntity()
                 && !moth.isShieldPersistent()
+                && !moth.isSwarming()
                 && (otherSide == null || moth.distanceToSqr(viewCenter) <= moth.distanceToSqr(otherSide)));
     }
 

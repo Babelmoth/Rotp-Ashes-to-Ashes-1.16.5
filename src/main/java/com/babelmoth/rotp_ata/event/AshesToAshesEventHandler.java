@@ -237,8 +237,8 @@ public class AshesToAshesEventHandler {
     @SubscribeEvent
     public static void onBreakSpeed(PlayerEvent.BreakSpeed event) {
         LivingEntity entity = event.getEntityLiving();
-        if (entity.level.isClientSide) return;
         
+        // 1. Attached moths on player (debuff/buff) - runs on both sides for sync
         List<FossilMothEntity> attachedMoths = MothQueryUtil.getAttachedMoths(entity, AshesToAshesConstants.QUERY_RADIUS_ATTACHMENT);
         
         int validDebuffCount = 0;
@@ -263,7 +263,7 @@ public class AshesToAshesEventHandler {
             modifier1 += 0.10f * validBuffCount;
         }
         
-        // 2. Protection Logic (Block attached moths)
+        // 2. Protection Logic (Block attached moths) - runs on both sides for sync
         int protectingCount = getProtectingMothCount(event.getEntity().level, event.getPos());
         float modifier2 = 1.0f;
         
@@ -280,10 +280,30 @@ public class AshesToAshesEventHandler {
         if (modifier1 != 1.0f || modifier2 != 1.0f) {
             event.setNewSpeed(event.getOriginalSpeed() * modifier1 * modifier2);
         }
+
+        // 3. FrozenBarrierBlock mining -> server-only: 每tick累加固定破坏进度
+        if (!entity.level.isClientSide && event.getPos() != null) {
+            net.minecraft.block.BlockState miningState = entity.level.getBlockState(event.getPos());
+            if (miningState.getBlock() instanceof com.babelmoth.rotp_ata.block.FrozenBarrierBlock) {
+                net.minecraft.tileentity.TileEntity te = entity.level.getBlockEntity(event.getPos());
+                if (te instanceof com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity) {
+                    com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity barrier =
+                            (com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity) te;
+                    barrier.addBreakProgress(com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity.PROGRESS_PER_TICK);
+                }
+            }
+        }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void onBlockBreak(BlockEvent.BreakEvent event) {
+        // 0. FrozenBarrierBlock: vanilla永远不会破坏，但以防万一仍取消
+        net.minecraft.block.BlockState breakState = event.getWorld().getBlockState(event.getPos());
+        if (breakState.getBlock() instanceof com.babelmoth.rotp_ata.block.FrozenBarrierBlock) {
+            event.setCanceled(true);
+            return;
+        }
+
         // 1. Protection Logic
         if (getProtectingMothCount(event.getWorld(), event.getPos()) > 0) {
             event.setCanceled(true);
@@ -566,12 +586,21 @@ public class AshesToAshesEventHandler {
     }
     
     // Fast lookup using ProtectedBlockRegistry (handles double blocks like doors)
+    // On client side, falls back to entity search since registry is server-only
     public static int getProtectingMothCount(net.minecraft.world.IWorld world, net.minecraft.util.math.BlockPos pos) {
         if (world == null || pos == null) return 0;
         if (!(world instanceof net.minecraft.world.World)) return 0;
         
         net.minecraft.world.World level = (net.minecraft.world.World) world;
-        int count = com.babelmoth.rotp_ata.util.ProtectedBlockRegistry.getMothCount(level, pos);
+        
+        int count;
+        if (level.isClientSide) {
+            // Client-side: ProtectedBlockRegistry is empty, use entity search fallback
+            count = getProtectingMothCountByEntitySearch(level, pos);
+        } else {
+            // Server-side: use fast registry lookup
+            count = com.babelmoth.rotp_ata.util.ProtectedBlockRegistry.getMothCount(level, pos);
+        }
         
         // Handle double blocks (Doors) - check both halves
         try {
@@ -583,13 +612,26 @@ public class AshesToAshesEventHandler {
                 } else {
                     otherHalf = pos.below();
                 }
-                count += com.babelmoth.rotp_ata.util.ProtectedBlockRegistry.getMothCount(level, otherHalf);
+                if (level.isClientSide) {
+                    count += getProtectingMothCountByEntitySearch(level, otherHalf);
+                } else {
+                    count += com.babelmoth.rotp_ata.util.ProtectedBlockRegistry.getMothCount(level, otherHalf);
+                }
             }
         } catch (Exception e) {
             // Ignore state errors
         }
         
         return count;
+    }
+    
+    // Client-side fallback: search for attached moths near the block position
+    // Uses synced entityData (ATTACHED_FACE) and entity position
+    private static int getProtectingMothCountByEntitySearch(net.minecraft.world.World level, net.minecraft.util.math.BlockPos pos) {
+        net.minecraft.util.math.AxisAlignedBB searchBox = new net.minecraft.util.math.AxisAlignedBB(pos).inflate(1.0);
+        java.util.List<FossilMothEntity> moths = level.getEntitiesOfClass(FossilMothEntity.class, searchBox,
+                moth -> moth.isAlive() && moth.isAttached());
+        return moths.size();
     }
 
     @SubscribeEvent
@@ -689,6 +731,46 @@ public class AshesToAshesEventHandler {
             // 同步荆棘数据到客户端
             syncThornDataFromEvent(entity, cap);
         });
+
+        // 替身实体的治疗也需要检查本体的荆棘系统（治疗效果根据本体血量计算）
+        if (!event.isCanceled() && entity instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
+            LivingEntity user = ((com.github.standobyte.jojo.entity.stand.StandEntity) entity).getUser();
+            if (user != null) {
+                user.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                    if (!cap.hasSpear()) return;
+
+                    float healAmount = event.getAmount();
+                    if (healAmount <= 0) return;
+
+                    // 取消替身治疗
+                    event.setCanceled(true);
+
+                    // 治疗量转化为本体的荆棘层数
+                    int thornToAdd = (int) Math.ceil(healAmount);
+                    cap.addThorns(thornToAdd);
+
+                    // 荆棘增加时对本体造成等量伤害
+                    if (!IS_PROCESSING_THORN.get()) {
+                        IS_PROCESSING_THORN.set(true);
+                        try {
+                            user.hurt(DamageSource.GENERIC, thornToAdd);
+                        } finally {
+                            IS_PROCESSING_THORN.set(false);
+                        }
+                    }
+
+                    // 流血粒子在本体身上
+                    com.github.standobyte.jojo.potion.BleedingEffect.splashBlood(
+                            user.level, user.getBoundingBox().getCenter(),
+                            1.0 + thornToAdd * 0.2, thornToAdd,
+                            java.util.OptionalInt.of(Math.min(thornToAdd / 2, 3)),
+                            java.util.Optional.of(user));
+
+                    syncThornToStuck(user, cap);
+                    syncThornDataFromEvent(user, cap);
+                });
+            }
+        }
     }
 
     /**
@@ -871,13 +953,14 @@ public class AshesToAshesEventHandler {
 
     /**
      * 长矛脱落：清除所有荆棘和stuck层数，自动触发回收
+     * 注意：荆棘在本体(entity)上，但stuck可能在替身实体上
      */
     private static void detachSpearFromEntity(LivingEntity entity, com.babelmoth.rotp_ata.capability.ISpearThorn thornCap) {
         // 清除荆棘数据
         thornCap.reset();
         syncThornDataFromEvent(entity, thornCap);
 
-        // 清除 stuck 数
+        // 清除本体的 stuck 数
         entity.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(stuckCap -> {
             stuckCap.setSpearCount(0);
             com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
@@ -885,11 +968,33 @@ public class AshesToAshesEventHandler {
                     new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(entity.getId(), 0));
         });
 
-        // 找到插在该实体身上的所有长矛并触发回收
-        net.minecraft.util.math.AxisAlignedBB box = entity.getBoundingBox().inflate(5.0);
+        // 收集需要搜索的目标ID（本体 + 可能的替身实体）
+        java.util.Set<Integer> searchIds = new java.util.HashSet<>();
+        searchIds.add(entity.getId());
+
+        // 如果本体是玩家，也检查其替身实体上的stuck
+        if (entity instanceof PlayerEntity) {
+            IStandPower.getStandPowerOptional((PlayerEntity) entity).ifPresent(power -> {
+                if (power.isActive() && power.getStandManifestation() instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
+                    com.github.standobyte.jojo.entity.stand.StandEntity stand =
+                            (com.github.standobyte.jojo.entity.stand.StandEntity) power.getStandManifestation();
+                    searchIds.add(stand.getId());
+                    // 清除替身的 stuck 数
+                    stand.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(stuckCap -> {
+                        stuckCap.setSpearCount(0);
+                        com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
+                                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> stand),
+                                new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(stand.getId(), 0));
+                    });
+                }
+            });
+        }
+
+        // 找到插在本体或替身身上的所有长矛并触发回收
+        net.minecraft.util.math.AxisAlignedBB box = entity.getBoundingBox().inflate(10.0);
         for (com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity spear :
                 entity.level.getEntitiesOfClass(com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity.class, box,
-                        e -> e.isAlive() && e.isInvisible() && e.getStuckTargetId() == entity.getId())) {
+                        e -> e.isAlive() && e.isInvisible() && searchIds.contains(e.getStuckTargetId()))) {
             spear.setRecalled(true);
         }
     }
@@ -1027,18 +1132,26 @@ public class AshesToAshesEventHandler {
                 net.minecraft.entity.Entity target = entity.level.getEntity(targetId);
                 if (target instanceof LivingEntity) {
                     LivingEntity livingTarget = (LivingEntity) target;
+                    // 清除stuck数（stuck在命中实体上）
                     livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(cap -> {
                         cap.setSpearCount(0);
                         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
                                 net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> livingTarget),
                                 new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(livingTarget.getId(), 0));
                     });
-                    livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                    // 清除thorn：如果stuck在替身上，thorn在其本体上
+                    LivingEntity thornEntity = livingTarget;
+                    if (livingTarget instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
+                        LivingEntity user = ((com.github.standobyte.jojo.entity.stand.StandEntity) livingTarget).getUser();
+                        if (user != null) thornEntity = user;
+                    }
+                    final LivingEntity finalThornEntity = thornEntity;
+                    finalThornEntity.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
                         cap.reset();
                         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
-                                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> livingTarget),
+                                net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> finalThornEntity),
                                 new com.babelmoth.rotp_ata.networking.SpearThornSyncPacket(
-                                        livingTarget.getId(), cap.getThornCount(), cap.getDamageDealt(),
+                                        finalThornEntity.getId(), cap.getThornCount(), cap.getDamageDealt(),
                                         cap.getDetachThreshold(), cap.hasSpear()));
                     });
                 }

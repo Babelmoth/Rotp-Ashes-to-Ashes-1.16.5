@@ -117,7 +117,9 @@ public class FossilMothRenderer extends GeoEntityRenderer<FossilMothEntity> {
         IVertexBuilder vertexBuffer = bufferIn.getBuffer(renderType);
 
         if (this.getGeoModelProvider() instanceof FossilMothModel) {
-            ((FossilMothModel) this.getGeoModelProvider()).setLivingAnimations(entity, this.getUniqueID(entity), null);
+            software.bernie.geckolib3.core.event.predicate.AnimationEvent<FossilMothEntity> animEvent =
+                    new software.bernie.geckolib3.core.event.predicate.AnimationEvent<>(entity, 0, 0, partialTicks, false, java.util.Collections.emptyList());
+            ((FossilMothModel) this.getGeoModelProvider()).setLivingAnimations(entity, this.getUniqueID(entity), animEvent);
         }
 
         this.render(
