@@ -26,10 +26,6 @@ import net.minecraft.world.server.ServerWorld;
 
 import java.util.List;
 
-/**
- * Thorn Strike: Target a block to create extending ground spikes around it,
- * damaging nearby enemies. Requires holding spear. Max resolve to unlock.
- */
 public class ThelaHunGinjeetThornStrike extends StandAction {
     private static final float BASE_DAMAGE = 8.0F;
     private static final double SPIKE_RANGE = 6.0;
@@ -67,7 +63,6 @@ public class ThelaHunGinjeetThornStrike extends StandAction {
         Vector3d center = Vector3d.atCenterOf(blockPos);
         float damage = getScaledDamage(power);
 
-        // Damage all living entities in range
         AxisAlignedBB aoe = new AxisAlignedBB(
                 center.x - SPIKE_RANGE, center.y - 1, center.z - SPIKE_RANGE,
                 center.x + SPIKE_RANGE, center.y + 3, center.z + SPIKE_RANGE);
@@ -81,20 +76,19 @@ public class ThelaHunGinjeetThornStrike extends StandAction {
                 }
             };
             float finalDamage = damage;
-            // 附魔加成
+
             ItemStack spear = user.getMainHandItem();
             if (entity instanceof LivingEntity) {
                 finalDamage += SpearEnchantHelper.getTotalBonusDamage(spear, (LivingEntity) entity);
                 SpearEnchantHelper.applyFireAspect(spear, (LivingEntity) entity);
             }
             entity.hurt(source, finalDamage);
-            // Knockback upward
+
             entity.setDeltaMovement(entity.getDeltaMovement().add(0, 0.5, 0));
             entity.hurtMarked = true;
         }
 
-        // Visual: spawn spear spike entities from the ground in expanding rings
-        int spikeLifetime = 40; // 2 seconds
+        int spikeLifetime = 40;
         for (int ring = 1; ring <= (int) SPIKE_RANGE; ring++) {
             int spikesInRing = Math.max(4, ring * 4);
             for (int i = 0; i < spikesInRing; i++) {
@@ -103,12 +97,10 @@ public class ThelaHunGinjeetThornStrike extends StandAction {
                 double px = center.x + ring * Math.cos(rad);
                 double pz = center.z + ring * Math.sin(rad);
 
-                // Terrain adaptation: find ground surface at this position
                 double groundY = findGroundY(world, px, center.y, pz);
 
-                // Spear pointing upward (pitch=0 is vertical up) with slight random tilt
                 float spikeYaw = (float) angle;
-                float spikePitch = (float)(Math.random() * 20.0 - 10.0); // mostly upward with slight tilt
+                float spikePitch = (float)(Math.random() * 20.0 - 10.0);
                 com.babelmoth.rotp_ata.entity.SpearSpikeEntity spike =
                         new com.babelmoth.rotp_ata.entity.SpearSpikeEntity(world, px, groundY, pz, spikeYaw, spikePitch, spikeLifetime);
                 world.addFreshEntity(spike);
@@ -120,24 +112,20 @@ public class ThelaHunGinjeetThornStrike extends StandAction {
         user.playSound(SoundEvents.GENERIC_EXPLODE, 0.5F, 1.5F);
     }
 
-    /**
-     * Find the ground surface Y at the given XZ position, searching up and down from referenceY.
-     * Returns the Y of the top of the highest solid block within range.
-     */
     private static double findGroundY(World world, double x, double referenceY, double z) {
         BlockPos.Mutable mutable = new BlockPos.Mutable();
         int refY = (int) Math.floor(referenceY);
-        // Search up to 5 blocks above and below the reference
+
         for (int dy = 5; dy >= -5; dy--) {
             mutable.set((int) Math.floor(x), refY + dy, (int) Math.floor(z));
             BlockState state = world.getBlockState(mutable);
             BlockState above = world.getBlockState(mutable.above());
-            // Ground = solid block with air/non-solid above
+
             if (state.getMaterial().isSolid() && !above.getMaterial().isSolid()) {
                 return mutable.getY() + 1.0;
             }
         }
-        // Fallback to reference Y
+
         return referenceY;
     }
 

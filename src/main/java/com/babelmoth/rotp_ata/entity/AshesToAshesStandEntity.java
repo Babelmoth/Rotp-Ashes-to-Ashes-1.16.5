@@ -14,17 +14,12 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.world.World;
 
-/**
- * Stand entity for Ashes to Ashes.
- * Manages moth spawning, replenishment, and energy consumption.
- */
 public class AshesToAshesStandEntity extends StandEntity {
-    
+
     private boolean mothsSpawned = false;
     private static final int MOTH_COUNT = AshesToAshesConstants.DEFAULT_MOTH_COUNT;
     private static final int MOTH_COUNT_RESOLVE = 30;
 
-    /** Returns active moth target count: uses config value, +10 during Resolve. */
     private int getTargetMothCount() {
         LivingEntity user = getUser();
         if (user == null) return MOTH_COUNT;
@@ -38,15 +33,13 @@ public class AshesToAshesStandEntity extends StandEntity {
     }
     private int replenishTimer = 0;
     private boolean poolDataChanged = false;
-    
+
     private final java.util.Deque<FossilMothEntity> deployedMoths = new java.util.ArrayDeque<>();
     private boolean wasUserLeaping = false;
 
     @Override
     public float getLeapStrength() {
-        // RotP standard leap strength calculation: (float) Math.min(strength, 40) / 5F;
-        // Setting to 6.0f (equivalent to 30 strength) for a strong but controlled jump.
-        // This MUST return a value on the Client side for InputHandler to trigger.
+
         if (getGlobalTotalEnergy() >= 5 && getGlobalTotalMoths() >= 1) {
             return 6.0f;
         }
@@ -60,7 +53,7 @@ public class AshesToAshesStandEntity extends StandEntity {
             .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalKineticEnergy)
             .orElse(0);
     }
-    
+
     public int getGlobalHamonEnergy() {
         LivingEntity user = getUser();
         if (user == null) return 0;
@@ -68,7 +61,7 @@ public class AshesToAshesStandEntity extends StandEntity {
             .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalHamonEnergy)
             .orElse(0);
     }
-    
+
     public int getGlobalTotalEnergy() {
         return getGlobalKineticEnergy() + getGlobalHamonEnergy();
     }
@@ -84,18 +77,16 @@ public class AshesToAshesStandEntity extends StandEntity {
     public AshesToAshesStandEntity(StandEntityType<AshesToAshesStandEntity> type, World world) {
         super(type, world);
     }
-    
+
     @Override
     public void tick() {
         super.tick();
-        
+
         if (!level.isClientSide) {
             LivingEntity user = getUser();
             if (user != null) {
                 user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(com.babelmoth.rotp_ata.capability.IMothPool::tickRecovery);
-                
-                // Authentic Leap Consumption logic:
-                // Only consume when the jump starts (rising edge of isDoingLeap flag)
+
                 if (user instanceof com.github.standobyte.jojo.util.mod.IPlayerLeap) {
                     com.github.standobyte.jojo.util.mod.IPlayerLeap leapData = (com.github.standobyte.jojo.util.mod.IPlayerLeap) user;
                     boolean isLeaping = leapData.isDoingLeap();
@@ -108,23 +99,20 @@ public class AshesToAshesStandEntity extends StandEntity {
                     wasUserLeaping = isLeaping;
                 }
             }
-            
-            // On first server-side tick, spawn the base swarm of fossil moths
+
             if (!mothsSpawned) {
                 spawnFossilMoths();
                 mothsSpawned = true;
             }
 
-            // Swarm maintenance: replenish & trim once per second
             replenishTimer++;
             if (replenishTimer >= 20) {
                 replenishTimer = 0;
                 replenishMoths();
-                // If there are more than DEFAULT_MOTH_COUNT free moths nearby, recall the furthest ones first
+
                 recallExcessMoths();
             }
 
-            // Sync pool to client: immediately on first tick (so HUD has data as soon as stand is out), then periodically
             boolean shouldSync = poolDataChanged
                 || this.tickCount <= 1
                 || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0;
@@ -136,7 +124,7 @@ public class AshesToAshesStandEntity extends StandEntity {
                 });
                 poolDataChanged = false;
             }
-            
+
             tickShieldLogic();
             tickGuardianLogic();
         }
@@ -167,15 +155,15 @@ public class AshesToAshesStandEntity extends StandEntity {
             user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
                 int toSpawn = Math.min(2, targetCount - currentSwarmSize);
                 if (toSpawn <= 0 || toSpawn > targetCount) return;
-                
+
                 for (int i = 0; i < toSpawn; i++) {
                     int slot = pool.allocateSlotWithPriority(true);
-                    
+
                     if (slot == -1) {
                         pool.clearAllDeployed();
                         slot = pool.allocateSlotWithPriority(true);
                     }
-                    
+
                     if (slot != -1 && level != null) {
                         FossilMothEntity moth = new FossilMothEntity(level, user);
                         moth.setMothPoolIndex(slot);
@@ -187,18 +175,17 @@ public class AshesToAshesStandEntity extends StandEntity {
             });
         }
     }
-    
+
     private void spawnFossilMoths() {
         LivingEntity user = getUser();
         if (user == null) return;
-        
+
         FossilMothEntity.spawnMothsForUser(level, user, getTargetMothCount());
     }
-    
-    // --- Shield Logic ---
+
     private boolean isShieldActive = false;
     private int shieldConsumptionTimer = 0;
-    
+
     public void toggleShield() {
         this.isShieldActive = !this.isShieldActive;
     }
@@ -234,10 +221,10 @@ public class AshesToAshesStandEntity extends StandEntity {
             isShieldActive = false;
             return;
         }
-        
+
         java.util.List<FossilMothEntity> shieldMoths = MothQueryUtil.getShieldMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         int shieldCount = shieldMoths.size();
-        
+
         int targetShieldCount = getShieldMothCountConfig();
         if (shieldCount < targetShieldCount) {
             java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
@@ -249,11 +236,11 @@ public class AshesToAshesStandEntity extends StandEntity {
                 moth.detach();
             }
         }
-        
+
         for (FossilMothEntity moth : shieldMoths) {
             moth.refreshShield();
         }
-        
+
         if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity)user).isCreative()) {
              com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity)user).ifPresent(power -> {
                  power.consumeStamina(0.5F);
@@ -264,15 +251,15 @@ public class AshesToAshesStandEntity extends StandEntity {
              });
         }
     }
-    
+
     private void tickGuardianLogic() {
         LivingEntity user = getUser();
         if (user == null) return;
-        
+
         java.util.List<FossilMothEntity> guardianMoths = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         int guardianCount = guardianMoths.size();
         if (guardianCount == 0) return;
-        
+
         Entity guardianTarget = null;
         for (FossilMothEntity moth : guardianMoths) {
             Entity t = moth.getShieldTarget();
@@ -281,21 +268,21 @@ public class AshesToAshesStandEntity extends StandEntity {
                 break;
             }
         }
-        
+
         if (guardianTarget == null) {
             for (FossilMothEntity moth : guardianMoths) {
                 moth.setShieldTarget(null);
             }
             return;
         }
-        
+
         int targetGuardianCount = getGuardianMothCountConfig();
         if (guardianCount < targetGuardianCount) {
             Entity nearestSide = user;
             if (this.isAlive() && guardianTarget.distanceToSqr(this) < guardianTarget.distanceToSqr(user)) {
                 nearestSide = this;
             }
-            
+
             java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMothsAround(user, nearestSide, AshesToAshesConstants.QUERY_RADIUS_SWARM);
             int toRecruit = Math.min(targetGuardianCount - guardianCount, freeMoths.size());
             for (int i = 0; i < toRecruit; i++) {
@@ -305,7 +292,7 @@ public class AshesToAshesStandEntity extends StandEntity {
                 moth.detach();
             }
         }
-        
+
         for (FossilMothEntity moth : guardianMoths) {
             moth.refreshShield();
         }
@@ -314,7 +301,7 @@ public class AshesToAshesStandEntity extends StandEntity {
     @Override
     public void onRemovedFromWorld() {
         super.onRemovedFromWorld();
-        
+
         if (!level.isClientSide) {
             LivingEntity user = getUser();
             if (user != null) {
@@ -326,71 +313,59 @@ public class AshesToAshesStandEntity extends StandEntity {
             }
         }
     }
-    
-    /**
-     * Result of energy consumption showing Hamon vs Kinetic breakdown.
-     * hamonUsed > 0 indicates Hamon damage should be applied.
-     */
+
     public static class EnergyConsumeResult {
         public final int hamonUsed;
         public final int kineticUsed;
         public final boolean success;
-        
+
         public EnergyConsumeResult(int hamonUsed, int kineticUsed, boolean success) {
             this.hamonUsed = hamonUsed;
             this.kineticUsed = kineticUsed;
             this.success = success;
         }
-        
+
         public boolean usedHamon() {
             return hamonUsed > 0;
         }
-        
+
         public int totalUsed() {
             return hamonUsed + kineticUsed;
         }
     }
-    
-    /**
-     * Consume energy with Hamon priority.
-     * Returns result showing breakdown.
-     */
+
     public EnergyConsumeResult consumeEnergyPrioritizeHamon(int amount) {
         LivingEntity user = getUser();
         if (user == null) return new EnergyConsumeResult(0, 0, false);
-        
+
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {
             int totalHamon = pool.getTotalHamonEnergy();
             int availableKinetic = pool.getAvailableKinetic();
-            
+
             if (totalHamon + availableKinetic < amount) {
                 return new EnergyConsumeResult(0, 0, false);
             }
-            
-            // Prioritize Hamon
+
             int hamonToUse = Math.min(totalHamon, amount);
             int remaining = amount - hamonToUse;
             int kineticToUse = Math.min(availableKinetic, remaining);
-            
+
             if (hamonToUse > 0) pool.consumeHamon(hamonToUse);
             if (kineticToUse > 0) pool.consumeKinetic(kineticToUse);
-            
+
             return new EnergyConsumeResult(hamonToUse, kineticToUse, true);
         }).orElse(new EnergyConsumeResult(0, 0, false));
     }
-    
-    /**
-     * Consume Hamon energy from moths (distributed).
-     */
+
     private void consumeGlobalHamonEnergy(int amount) {
         LivingEntity user = getUser();
         if (user == null) return;
-        
+
         List<FossilMothEntity> activeMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         activeMoths.removeIf(m -> m.getHamonEnergy() <= 0);
-        
+
         if (activeMoths.isEmpty()) return;
-        
+
         int needed = amount;
         while (needed > 0 && !activeMoths.isEmpty()) {
             int split = Math.max(1, needed / activeMoths.size());
@@ -407,20 +382,20 @@ public class AshesToAshesStandEntity extends StandEntity {
             }
         }
     }
-    
+
     public boolean consumeMoths(int count) {
         LivingEntity user = getUser();
         if (user == null) return false;
-        
+
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
             .map(pool -> pool.consumeMoths(count))
             .orElse(false);
     }
-    
+
     public boolean consumeGlobalEnergy(int amount) {
         LivingEntity user = getUser();
         if (user == null) return false;
-        
+
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {
             if (pool.getAvailableKinetic() < amount) return false;
             pool.consumeKinetic(amount);

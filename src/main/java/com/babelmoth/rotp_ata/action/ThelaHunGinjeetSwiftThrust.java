@@ -29,10 +29,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/**
- * Swift Thrust: Player dashes forward and damages enemies in the path.
- * Similar to Silver Chariot's dash attack, but performed by the player.
- */
 public class ThelaHunGinjeetSwiftThrust extends StandAction {
     private static final float BASE_THRUST_DAMAGE = 5.0F;
     private static final double THRUST_DISTANCE = 10.0;
@@ -109,7 +105,6 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
 
         Set<Integer> hitEntities = new HashSet<>();
 
-        // Step-check enemies along the path
         for (int step = 1; step <= THRUST_STEPS; step++) {
             double progress = (double) step / THRUST_STEPS;
             Vector3d checkPos = startPos.add(lookVec.scale(THRUST_DISTANCE * progress));
@@ -153,19 +148,14 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
         }
     }
 
-    /**
-     * 激流旋转突刺：360°AOE旋转攻击 + 向前冲刺，伤害随激流等级提升
-     */
     private void performRiptideThrust(World world, LivingEntity user, IStandPower power, ItemStack spear, int riptideLevel) {
         Vector3d lookVec = user.getLookAngle();
         Vector3d startPos = user.position().add(0, user.getBbHeight() * 0.5, 0);
 
-        // 激流伤害加成：每级 +2.0
         float riptideDamageBonus = riptideLevel * 2.0F;
 
         Set<Integer> hitEntities = new HashSet<>();
 
-        // 旋转突刺：沿路径 + 360°范围检测
         double riptideDistance = THRUST_DISTANCE * (1.0 + riptideLevel * 0.2);
         double riptideRadius = HIT_RADIUS * 2.0;
 
@@ -192,7 +182,7 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
                     SpearEnchantHelper.applyFireAspect(spear, (LivingEntity) entity);
                 }
                 entity.hurt(source, damage);
-                // 旋转击退：从玩家位置向外推
+
                 Vector3d toEntity = entity.position().subtract(user.position()).normalize();
                 double knockbackScale = 1.0 + SpearEnchantHelper.getKnockbackBonus(spear);
                 entity.setDeltaMovement(entity.getDeltaMovement().add(
@@ -201,15 +191,13 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
             }
         }
 
-        // 激流冲刺移动（比普通突刺更远）
         Vector3d motion = lookVec.scale(riptideDistance * 0.18);
         user.setDeltaMovement(motion.x, motion.y + 0.2, motion.z);
         user.hurtMarked = true;
 
-        // 触发原版激流旋转动画 + 漩涡粒子特效
         user.startAutoSpinAttack(20);
         user.swing(Hand.MAIN_HAND, true);
-        // 激流音效（根据等级选择不同音效）
+
         net.minecraft.util.SoundEvent riptideSound = riptideLevel >= 3 ? SoundEvents.TRIDENT_RIPTIDE_3
                 : riptideLevel == 2 ? SoundEvents.TRIDENT_RIPTIDE_2 : SoundEvents.TRIDENT_RIPTIDE_1;
         world.playSound(null, user.getX(), user.getY(), user.getZ(),
@@ -220,9 +208,6 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
         }
     }
 
-    /**
-     * Scale damage based on stand attack power. Base power 8.0 = base damage.
-     */
     private static float getScaledDamage(IStandPower power) {
         IStandManifestation manifestation = power.getStandManifestation();
         if (manifestation instanceof StandEntity) {

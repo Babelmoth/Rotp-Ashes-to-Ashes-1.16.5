@@ -22,13 +22,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-/**
- * Moth swarm configuration screen for Ashes to Ashes.
- * Uses RotP's hamon_window.png frame + jojo.png tiled background.
- */
 public class MothConfigScreen extends Screen {
 
-    // RotP textures
     private static final ResourceLocation WINDOW = new ResourceLocation("jojo", "textures/gui/hamon_window.png");
     private static final ResourceLocation BACKGROUND = new ResourceLocation("jojo", "textures/gui/advancements/jojo.png");
     private static final ResourceLocation WIDGETS_TEX = new ResourceLocation("textures/gui/widgets.png");
@@ -37,32 +32,28 @@ public class MothConfigScreen extends Screen {
     private static final int WINDOW_THIN_BORDER = 9;
     private static final int WINDOW_UPPER_BORDER = 18;
 
-    // Content area dimensions
     private static final int CONTENT_W = WINDOW_WIDTH - WINDOW_THIN_BORDER * 2;
     private static final int CONTENT_H = WINDOW_HEIGHT - WINDOW_UPPER_BORDER - WINDOW_THIN_BORDER;
 
-    // Colors - unified RotP palette
     private static final int COL_TITLE = 0xFFD4AA55;
     private static final int COL_TEXT  = 0xFFFFFFFF;
     private static final int COL_DIM   = 0xFFAAAAAA;
     private static final int COL_SEP   = 0xFF5A4A35;
 
-    // Resolve-based max limits: [noResolve, resolveI, resolveII, resolveIII+]
     private static final int[] ORBIT_MAX  = {20, 30, 40, 50};
     private static final int[] SHIELD_MAX = { 5, 10, 15, 20};
-    private static final int[] SWARM_MAX  = {30, 50, 75, 100}; // percentage
+    private static final int[] SWARM_MAX  = {30, 50, 75, 100};
 
     private IMothPool pool;
     private int orbitCount, shieldCount, swarmCount;
     private boolean barrierPassthrough, autoChargeShield, remoteFollow;
     private int remoteFollowRatio;
-    private int resolveLevel = 0; // 0=none, 1=I, 2=II, 3=III+
+    private int resolveLevel = 0;
 
-    // Scrolling
     private double scrollY = 0;
     private int totalContentHeight = 0;
     private final List<ScrollableWidget> scrollableWidgets = new ArrayList<>();
-    // Dynamic slider references for max update
+
     private VanillaSlider orbitSlider, shieldSlider, swarmSlider;
     private VanillaSlider followRatioSlider;
     private VanillaToggle remoteFollowToggle;
@@ -96,12 +87,11 @@ public class MothConfigScreen extends Screen {
                 this.remoteFollow = p.isRemoteFollow();
                 this.remoteFollowRatio = p.getRemoteFollowRatio();
             });
-            // Read resolve level from IStandPower capability
+
             resolveLevel = IStandPower.getStandPowerOptional(mc.player)
                     .map(IStandPower::getResolveLevel).orElse(0);
         }
 
-        // Clamp config values to current resolve-based max
         orbitCount = MathHelper.clamp(orbitCount, 5, getOrbitMax());
         shieldCount = MathHelper.clamp(shieldCount, 1, getShieldMax());
         swarmCount = MathHelper.clamp(swarmCount, 1, getSwarmMax());
@@ -112,52 +102,44 @@ public class MothConfigScreen extends Screen {
         int sliderW = 90;
         int sliderX = contentRight - sliderW;
 
-        // Layout: y offset relative to contentTop
         int yOff = 4;
-        // Info section: 6 lines × 13px (total, active, reserve, kinetic, hamon, resolve)
-        yOff += 6 * 13; // 78
-        yOff += 6; // gap
 
-        // Separator + settings header
-        yOff += 16; // separator + title
-        yOff += 4; // gap = 104
+        yOff += 6 * 13;
+        yOff += 6;
 
-        // Orbit slider
+        yOff += 16;
+        yOff += 4;
+
         orbitSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
                 5, getOrbitMax(), orbitCount, val -> { orbitCount = val; sendConfigUpdate(); });
         addButton(orbitSlider);
         scrollableWidgets.add(new ScrollableWidget(orbitSlider, yOff));
         yOff += 20;
 
-        // Shield slider
         shieldSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
                 1, getShieldMax(), shieldCount, val -> { shieldCount = val; sendConfigUpdate(); });
         addButton(shieldSlider);
         scrollableWidgets.add(new ScrollableWidget(shieldSlider, yOff));
         yOff += 20;
 
-        // Swarm slider (percentage)
         swarmSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
                 1, getSwarmMax(), swarmCount, true, val -> { swarmCount = val; sendConfigUpdate(); });
         addButton(swarmSlider);
         scrollableWidgets.add(new ScrollableWidget(swarmSlider, yOff));
         yOff += 22;
 
-        // Barrier passthrough toggle
         VanillaToggle barrierToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
                 barrierPassthrough, val -> { barrierPassthrough = val; sendConfigUpdate(); });
         addButton(barrierToggle);
         scrollableWidgets.add(new ScrollableWidget(barrierToggle, yOff));
         yOff += 20;
 
-        // Auto-charge shield toggle
         VanillaToggle chargeToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
                 autoChargeShield, val -> { autoChargeShield = val; sendConfigUpdate(); });
         addButton(chargeToggle);
         scrollableWidgets.add(new ScrollableWidget(chargeToggle, yOff));
         yOff += 22;
 
-        // Remote follow toggle
         remoteFollowToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
                 remoteFollow, val -> {
             remoteFollow = val;
@@ -168,7 +150,6 @@ public class MothConfigScreen extends Screen {
         scrollableWidgets.add(new ScrollableWidget(remoteFollowToggle, yOff));
         yOff += 20;
 
-        // Remote follow ratio slider (only visible if remoteFollow is on)
         followRatioSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
                 0, 100, remoteFollowRatio, true, val -> { remoteFollowRatio = val; sendConfigUpdate(); });
         followRatioSlider.visible = remoteFollow;
@@ -211,11 +192,9 @@ public class MothConfigScreen extends Screen {
         int wy = windowY();
         int cx = wx + WINDOW_WIDTH / 2;
 
-        // --- Render RotP window frame ---
         RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.enableBlend();
 
-        // Tiled jojo.png background inside the content area
         int contentLeft = wx + WINDOW_THIN_BORDER;
         int contentTop = wy + WINDOW_UPPER_BORDER;
         this.minecraft.getTextureManager().bind(BACKGROUND);
@@ -227,16 +206,13 @@ public class MothConfigScreen extends Screen {
             }
         }
 
-        // Window frame on top
         this.minecraft.getTextureManager().bind(WINDOW);
         this.blit(ms, wx, wy, 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
-        // --- Title (on window border, not scrollable) ---
         drawCenteredString(ms, this.font,
                 new TranslationTextComponent("rotp_ata.screen.moth_config.title"),
                 cx, wy + 5, COL_TITLE);
 
-        // --- Enable GL scissor for scrollable content ---
         int contentBottom = wy + WINDOW_HEIGHT - WINDOW_THIN_BORDER;
         int cLeft = contentLeft + 4;
         int cRight = wx + WINDOW_WIDTH - WINDOW_THIN_BORDER - 4;
@@ -244,7 +220,6 @@ public class MothConfigScreen extends Screen {
 
         int intScroll = MathHelper.floor(scrollY);
 
-        // --- Info Section ---
         int y = contentTop + 4 + intScroll;
         int lineH = 13;
 
@@ -260,19 +235,17 @@ public class MothConfigScreen extends Screen {
             drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.reserve", String.valueOf(reserve)); y += lineH;
             drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.kinetic", String.valueOf(kinetic)); y += lineH;
             drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.hamon", String.valueOf(hamon)); y += lineH;
-            // Resolve level
+
             String resolveName = resolveLevel == 0 ? "---" : ("Lv." + resolveLevel);
             drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.resolve", resolveName);
         }
 
-        // --- Separator ---
         int sepY = contentTop + 84 + intScroll;
         hLine(ms, cLeft, cRight, sepY, COL_SEP);
         drawCenteredString(ms, this.font,
                 new TranslationTextComponent("rotp_ata.screen.moth_config.settings"),
                 cx, sepY + 4, COL_TITLE);
 
-        // --- Config Labels (scrolled) ---
         int configY = contentTop + 104 + intScroll;
 
         drawString(ms, this.font, new TranslationTextComponent("rotp_ata.screen.moth_config.orbit"),
@@ -298,7 +271,6 @@ public class MothConfigScreen extends Screen {
                     cLeft, configY + 3, COL_DIM);
         }
 
-        // --- Render scrollable widgets ---
         for (ScrollableWidget sw : scrollableWidgets) {
             sw.widget.render(ms, mouseX, mouseY, partialTicks);
         }
@@ -318,7 +290,6 @@ public class MothConfigScreen extends Screen {
         return false;
     }
 
-    // --- GL Scissor helpers ---
     private void enableScissor(int x1, int y1, int x2, int y2) {
         MainWindow window = Minecraft.getInstance().getWindow();
         double scale = window.getGuiScale();
@@ -333,7 +304,6 @@ public class MothConfigScreen extends Screen {
         RenderSystem.disableScissor();
     }
 
-    // --- Widget scroll tracking ---
     private static class ScrollableWidget {
         final Widget widget;
         final int baseOffsetY;
@@ -343,7 +313,6 @@ public class MothConfigScreen extends Screen {
         }
     }
 
-    // ===================== Vanilla-textured Slider =====================
     public static class VanillaSlider extends Widget {
         private final int minVal;
         private int maxVal;
@@ -377,13 +346,12 @@ public class MothConfigScreen extends Screen {
             RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
             int halfH = height / 2;
             int texFullH = 20;
-            // Track background (inactive button y=46) - 4-corner 9-slice
+
             blit(ms, x, y, 0, 46, width / 2, halfH);
             blit(ms, x + width / 2, y, 200 - width / 2, 46, width / 2, halfH);
             blit(ms, x, y + halfH, 0, 46 + texFullH - (height - halfH), width / 2, height - halfH);
             blit(ms, x + width / 2, y + halfH, 200 - width / 2, 46 + texFullH - (height - halfH), width / 2, height - halfH);
 
-            // Handle - 4-corner 9-slice
             int handleW = 8;
             int handleX = x + (int)(sliderPos * (width - handleW));
             int handleTexY = this.isHovered() ? 86 : 66;
@@ -392,7 +360,6 @@ public class MothConfigScreen extends Screen {
             blit(ms, handleX, y + halfH, 0, handleTexY + texFullH - (height - halfH), handleW / 2, height - halfH);
             blit(ms, handleX + handleW / 2, y + halfH, 200 - handleW / 2, handleTexY + texFullH - (height - halfH), handleW / 2, height - halfH);
 
-            // Value text centered
             FontRenderer font = mc.font;
             String text = showPercent ? currentVal + "%" : String.valueOf(currentVal);
             int tw = font.width(text);
@@ -428,7 +395,6 @@ public class MothConfigScreen extends Screen {
         }
     }
 
-    // ===================== Vanilla-textured Toggle =====================
     public static class VanillaToggle extends Widget {
         private boolean enabled;
         private final Consumer<Boolean> onChange;
@@ -449,7 +415,7 @@ public class MothConfigScreen extends Screen {
             int texY = this.isHovered() ? 86 : 66;
             int halfH = height / 2;
             int texFullH = 20;
-            // 4-corner 9-slice rendering
+
             blit(ms, x, y, 0, texY, width / 2, halfH);
             blit(ms, x + width / 2, y, 200 - width / 2, texY, width / 2, halfH);
             blit(ms, x, y + halfH, 0, texY + texFullH - (height - halfH), width / 2, height - halfH);

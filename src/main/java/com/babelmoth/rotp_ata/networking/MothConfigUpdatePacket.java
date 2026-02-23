@@ -7,9 +7,6 @@ import net.minecraftforge.fml.network.NetworkEvent;
 
 import java.util.function.Supplier;
 
-/**
- * Client → Server: player changed config values in the Moth Config screen.
- */
 public class MothConfigUpdatePacket {
 
     private final int orbitCount;

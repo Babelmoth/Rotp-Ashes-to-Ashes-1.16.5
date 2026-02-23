@@ -14,18 +14,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(PlayerEntity.class)
 public class PlayerEntityMixin {
 
-    // Dig Speed / Harvest Speed
-    // getDigSpeed is a Forge added method, so we might need remap=false or exact signature
     @Inject(method = "getDigSpeed(Lnet/minecraft/block/BlockState;Lnet/minecraft/util/math/BlockPos;)F", at = @At("RETURN"), cancellable = true, remap = false)
     public void onGetDigSpeed(BlockState state, BlockPos pos, CallbackInfoReturnable<Float> cir) {
         PlayerEntity player = (PlayerEntity) (Object) this;
-        // getDigSpeed takes state/pos, need to access world. Player has level.
         int count = AshesToAshesEventHandler.getProtectingMothCount(player.level, pos);
-        
+
         if (count > 0) {
             float originalSpeed = cir.getReturnValue();
             if (count >= 5) {
-                cir.setReturnValue(0.0f); // Unbreakable
+                cir.setReturnValue(0.0f);
             } else {
                 float reduction = 0.2f * count;
                 cir.setReturnValue(originalSpeed * (1.0f - reduction));

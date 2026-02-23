@@ -1,11 +1,9 @@
 package com.babelmoth.rotp_ata.networking;
 
-import com.babelmoth.rotp_ata.capability.SpearStuckProvider;
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SpearStuckSyncPacket {
@@ -26,15 +24,14 @@ public class SpearStuckSyncPacket {
         return new SpearStuckSyncPacket(buf.readInt(), buf.readVarInt());
     }
 
+    public int getEntityId() { return entityId; }
+    public int getSpearCount() { return spearCount; }
+
+    private static Consumer<SpearStuckSyncPacket> clientHandler;
+    public static void setClientHandler(Consumer<SpearStuckSyncPacket> handler) { clientHandler = handler; }
+
     public static void handle(SpearStuckSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            Entity entity = Minecraft.getInstance().level != null
-                    ? Minecraft.getInstance().level.getEntity(msg.entityId) : null;
-            if (entity != null) {
-                entity.getCapability(SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(
-                        cap -> cap.setSpearCount(msg.spearCount));
-            }
-        });
+        ctx.get().enqueueWork(() -> { if (clientHandler != null) clientHandler.accept(msg); });
         ctx.get().setPacketHandled(true);
     }
 }

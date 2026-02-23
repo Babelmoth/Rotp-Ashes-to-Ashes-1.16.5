@@ -20,7 +20,7 @@ public class DoorBlockMixin {
     @Inject(method = "use", at = @At("HEAD"), cancellable = true)
     public void onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit, CallbackInfoReturnable<ActionResultType> cir) {
         int count = AshesToAshesEventHandler.getProtectingMothCount(world, pos);
-        
+
         if (count > 0) {
             cir.setReturnValue(ActionResultType.FAIL);
         }

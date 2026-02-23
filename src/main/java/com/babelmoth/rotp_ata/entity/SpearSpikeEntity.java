@@ -17,22 +17,17 @@ import net.minecraft.world.World;
 import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
 import net.minecraftforge.fml.network.NetworkHooks;
 
-/**
- * Decorative spear spike entity used for visual effects.
- * Spawns below ground and emerges upward over several ticks.
- * Auto-despawns after a set lifetime.
- */
 public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnData {
     private static final DataParameter<Float> DATA_SPIKE_YAW = EntityDataManager.defineId(SpearSpikeEntity.class, DataSerializers.FLOAT);
     private static final DataParameter<Float> DATA_SPIKE_PITCH = EntityDataManager.defineId(SpearSpikeEntity.class, DataSerializers.FLOAT);
 
-    private int lifetime = 40; // 2 seconds default
+    private int lifetime = 40;
     private int age = 0;
-    private int emergeTicks = 5; // ticks to fully emerge from ground
-    private double targetY; // final Y position (ground surface)
-    private double startY;  // starting Y position (below ground)
-    private static final double EMERGE_DEPTH = 1.5; // how far below ground to start
-    private boolean projectileMode = false; // when true, flies with velocity and despawns on block hit
+    private int emergeTicks = 5;
+    private double targetY;
+    private double startY;
+    private static final double EMERGE_DEPTH = 1.5;
+    private boolean projectileMode = false;
 
     public SpearSpikeEntity(EntityType<?> type, World world) {
         super(type, world);
@@ -71,10 +66,6 @@ public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnDa
         return this.entityData.get(DATA_SPIKE_PITCH);
     }
 
-    /**
-     * Enable projectile mode: the spike will fly with its velocity, apply gravity,
-     * and despawn when hitting a block.
-     */
     public void setProjectileMode(boolean mode) {
         this.projectileMode = mode;
         if (mode) {
@@ -86,9 +77,6 @@ public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnDa
         return projectileMode;
     }
 
-    /**
-     * Returns emergence progress from 0.0 (fully underground) to 1.0 (fully emerged).
-     */
     public float getEmergenceProgress(float partialTicks) {
         if (emergeTicks <= 0) return 1.0F;
         float progress = (age + partialTicks) / (float) emergeTicks;
@@ -101,12 +89,11 @@ public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnDa
         age++;
 
         if (projectileMode) {
-            // Projectile flight: apply velocity, gravity, and block collision
+
             Vector3d pos = position();
             Vector3d motion = getDeltaMovement();
             Vector3d nextPos = pos.add(motion);
 
-            // Ray trace for block collision
             if (!level.isClientSide) {
                 BlockRayTraceResult blockHit = level.clip(new RayTraceContext(
                         pos, nextPos, RayTraceContext.BlockMode.COLLIDER,
@@ -117,12 +104,10 @@ public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnDa
                 }
             }
 
-            // Move
             this.setPos(nextPos.x, nextPos.y, nextPos.z);
-            // Apply gravity
+
             this.setDeltaMovement(motion.add(0, -0.04, 0));
 
-            // Update visual rotation to match flight direction
             if (motion.lengthSqr() > 0.001) {
                 float newYaw = (float) Math.toDegrees(Math.atan2(motion.z, motion.x));
                 float horizSpeed = (float) Math.sqrt(motion.x * motion.x + motion.z * motion.z);
@@ -131,7 +116,7 @@ public class SpearSpikeEntity extends Entity implements IEntityAdditionalSpawnDa
                 this.setSpikePitch(-newPitch);
             }
         } else {
-            // Emergence animation: move upward from startY to targetY
+
             if (age <= emergeTicks) {
                 float progress = (float) age / (float) emergeTicks;
                 progress = Math.min(1.0F, progress);

@@ -14,10 +14,6 @@ import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
-/**
- * Kinetic adhesion: like normal adhesion but charges the placed/selected moth from the pool's available kinetic.
- * Shift variant of adhesion with its own icon and name.
- */
 public class AshesToAshesKineticAdhesion extends StandAction {
 
     public AshesToAshesKineticAdhesion(AbstractBuilder<?> builder) {
@@ -31,12 +27,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // Require a block or entity target
+
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             return ActionConditionResult.POSITIVE;
         }
         if (target.getType() == ActionTarget.TargetType.ENTITY) {
-            // Do not attach to fossil moths
+
             if (target.getEntity() instanceof FossilMothEntity) {
                 return ActionConditionResult.NEGATIVE;
             }
@@ -54,12 +50,11 @@ public class AshesToAshesKineticAdhesion extends StandAction {
 
         IMothPool pool = poolOpt.get();
 
-        // 1. Use only moths with room for more kinetic; prefer those with more energy
         java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, 64.0);
         freeMoths.removeIf(m -> {
             int idx = m.getMothPoolIndex();
             int current = (idx >= 0 && pool.isSlotActive(idx)) ? pool.getMothKinetic(idx) : m.getKineticEnergy();
-            return current >= m.getMaxEnergy(); // Full moths are not used for kinetic adhesion
+            return current >= m.getMaxEnergy();
         });
         freeMoths.sort(java.util.Comparator.<FossilMothEntity>comparingInt(m -> {
             int idx = m.getMothPoolIndex();
@@ -72,7 +67,7 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         if (!freeMoths.isEmpty()) {
             activeMoth = freeMoths.get(0);
         } else {
-            // New moth: allocate slot before charging so we don't reuse an undrained slot and create extra kinetic on sync
+
             if (pool.getTotalMoths() < IMothPool.MAX_MOTHS) {
                 int slot = pool.allocateSlotWithPriority(true);
                 if (slot < 0) return;
@@ -87,15 +82,14 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         }
 
         int excludeSlot = activeMoth.getMothPoolIndex();
-        // When slot is assigned, use pool value as source of truth for consistency with consumeExcluding
+
         int currentEnergy = (excludeSlot >= 0 && pool.isSlotActive(excludeSlot))
             ? pool.getMothKinetic(excludeSlot)
             : activeMoth.getKineticEnergy();
         int roomLocal = Math.max(0, activeMoth.getMaxEnergy() - currentEnergy);
-        // Only count available (non-deployed) kinetic; deployed moths are occupied and not used for charging
+
         int available = pool.getAvailableKinetic();
 
-        // 2. Pre-charge check: insufficient available kinetic -> message and cancel placement
         if (roomLocal > 0 && available < roomLocal) {
             if (user instanceof ServerPlayerEntity) {
                 ((ServerPlayerEntity) user).displayClientMessage(
@@ -107,14 +101,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
             return;
         }
 
-        // 3. Attach
         if (target.getType() == ActionTarget.TargetType.BLOCK) {
             activeMoth.attachTo(target.getBlockPos(), target.getFace());
         } else if (target.getType() == ActionTarget.TargetType.ENTITY) {
             activeMoth.attachToEntity(target.getEntity());
         }
 
-        // 4. Consume kinetic from other slots and charge this moth; write back to pool immediately
         int takeLimit = Math.min(roomLocal, available);
         if (takeLimit > 0 && excludeSlot >= 0) {
             int taken = pool.consumeKineticExcludingSlot(takeLimit, excludeSlot);
@@ -133,4 +125,3 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         }
     }
 }
-

@@ -26,20 +26,19 @@ public class MothKineticDetonationMarker extends MarkerRenderer {
 
     @Override
     protected void updatePositions(List<MarkerInstance> list, float partialTick) {
-        // Kinetic Detonation: Highlight Attached Moths WITH ENERGY
+
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (entity instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
                 com.babelmoth.rotp_ata.entity.FossilMothEntity moth = (com.babelmoth.rotp_ata.entity.FossilMothEntity) entity;
                 boolean isOwner = false;
                 try {
-                    // Check owner UUID matching client player
+
                     java.util.UUID ownerUUID = moth.getOwnerUUID();
                     if (ownerUUID != null && ownerUUID.equals(mc.player.getUUID())) {
                         isOwner = true;
                     }
                 } catch (Exception e) {}
-                
-                // Only mark moths with energy that are attached or have visited a position
+
                 if (isOwner && moth.getKineticEnergy() > 0 &&
                    (moth.isAttachedToEntity() || moth.getAttachedPos() != null || moth.getEntityData().get(com.babelmoth.rotp_ata.entity.FossilMothEntity.ATTACHED_FACE) != -1)) {
                      list.add(new MarkerInstance(

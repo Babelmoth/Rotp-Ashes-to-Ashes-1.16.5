@@ -23,16 +23,15 @@ public class AshesToAshesSwarmRecall extends StandAction {
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // Recall all attached moths (entity-attached and block-attached)
+
             List<FossilMothEntity> activeMoths = MCUtil.entitiesAround(
-                FossilMothEntity.class, user, 256, false, 
+                FossilMothEntity.class, user, 256, false,
                 moth -> moth.isAlive() && moth.getOwner() == user && (moth.isAttached() || moth.isAttachedToEntity()));
-            
+
             for (FossilMothEntity moth : activeMoths) {
                 moth.recall();
             }
-            
-            // Also remove all barriers (releasing their slots)
+
             List<BlockPos> barriers = AshesToAshesFrozenBarrier.getPlayerBarriers(user.getUUID());
             for (BlockPos pos : barriers) {
                 if (world.getBlockState(pos).getBlock() == InitBlocks.FROZEN_BARRIER.get()) {

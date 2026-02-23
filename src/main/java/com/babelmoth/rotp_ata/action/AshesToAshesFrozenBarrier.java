@@ -24,7 +24,6 @@ import java.util.*;
 
 public class AshesToAshesFrozenBarrier extends StandAction {
 
-    // Track barrier blocks per player (no count limit, each barrier reserves MOTHS_PER_BARRIER moth slots)
     private static final Map<UUID, LinkedList<BlockPos>> PLAYER_BARRIERS = new HashMap<>();
     public static final int MOTHS_PER_BARRIER = 3;
 
@@ -33,10 +32,12 @@ public class AshesToAshesFrozenBarrier extends StandAction {
     }
 
     @Override
+    public TargetRequirement getTargetRequirement() {
+        return TargetRequirement.BLOCK;
+    }
+
+    @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        if (target.getType() != ActionTarget.TargetType.BLOCK) {
-            return conditionMessage("block_target");
-        }
         boolean hasSlots = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY)
             .map(pool -> pool.getTotalMoths() + MOTHS_PER_BARRIER <= IMothPool.MAX_MOTHS)
             .orElse(false);
@@ -46,7 +47,6 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         return ActionConditionResult.POSITIVE;
     }
 
-    /** Helper for analytics: summoned moth entities in world + MOTHS_PER_BARRIER per barrier block. */
     public static int getEffectiveWorkingMothCount(LivingEntity owner) {
         if (owner == null) return 0;
         int summoned = MothQueryUtil.getOwnerMoths(owner, AshesToAshesConstants.QUERY_RADIUS_SWARM).size();
@@ -62,7 +62,6 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         BlockPos targetPos = target.getBlockPos();
         if (targetPos == null) return;
 
-        // Place at the block adjacent to the clicked face (top, side, or bottom), same as vanilla placement
         Direction face = target.getType() == ActionTarget.TargetType.BLOCK ? target.getFace() : Direction.UP;
         if (face == null) face = Direction.UP;
         BlockPos placePos = targetPos.relative(face);
@@ -71,7 +70,6 @@ public class AshesToAshesFrozenBarrier extends StandAction {
             return;
         }
 
-        // Allocate 3 pool slots for this barrier (do not recall any existing moths, just reserve slots)
         final int[] allocatedSlots = new int[MOTHS_PER_BARRIER];
         Arrays.fill(allocatedSlots, -1);
         boolean success = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).map(pool -> {
@@ -106,15 +104,13 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         barriers.add(placePos);
     }
 
-    // Called when barrier is removed to update tracking
     public static void onBarrierRemoved(UUID ownerUUID, BlockPos pos) {
         LinkedList<BlockPos> barriers = PLAYER_BARRIERS.get(ownerUUID);
         if (barriers != null) {
             barriers.remove(pos);
         }
     }
-    
-    // Get all barrier positions for a player
+
     public static List<BlockPos> getPlayerBarriers(UUID ownerUUID) {
         LinkedList<BlockPos> barriers = PLAYER_BARRIERS.get(ownerUUID);
         return barriers != null ? new ArrayList<>(barriers) : new ArrayList<>();

@@ -19,7 +19,7 @@ public class FossilMothAmberLayer extends GeoLayerRenderer<FossilMothEntity> {
     public FossilMothAmberLayer(IGeoRenderer<FossilMothEntity> entityRendererIn) {
         super(entityRendererIn);
     }
-    
+
     @Override
     public RenderType getRenderType(ResourceLocation textureLocation) {
         return RenderType.entityTranslucent(textureLocation);
@@ -27,21 +27,18 @@ public class FossilMothAmberLayer extends GeoLayerRenderer<FossilMothEntity> {
 
     @Override
     public void render(MatrixStack matrixStackIn, IRenderTypeBuffer bufferIn, int packedLightIn, FossilMothEntity entity, float limbSwing, float limbSwingAmount, float partialTicks, float ageInTicks, float netHeadYaw, float headPitch) {
-        int energy = entity.getTotalEnergy(); // Combined kinetic + Hamon energy
+        int energy = entity.getTotalEnergy();
         if (energy > 0) {
             float maxEnergy = (float) entity.getMaxEnergy();
             float alpha = (float) energy / maxEnergy;
-            alpha = Math.max(0.05f, Math.min(1.0f, alpha)); // Min 5% visibility
-            
-            // Get the model from parent renderer
+            alpha = Math.max(0.05f, Math.min(1.0f, alpha));
+
             ResourceLocation modelLoc = this.getRenderer().getGeoModelProvider().getModelLocation(entity);
             GeoModel model = this.getRenderer().getGeoModelProvider().getModel(modelLoc);
-            
-            // Create vertex buffer with translucent render type
+
             RenderType renderType = RenderType.entityTranslucent(AMBER);
             IVertexBuilder vertexBuffer = bufferIn.getBuffer(renderType);
-            
-            // Render the model with amber texture and alpha
+
             this.getRenderer().render(
                 model,
                 entity,
@@ -50,9 +47,9 @@ public class FossilMothAmberLayer extends GeoLayerRenderer<FossilMothEntity> {
                 matrixStackIn,
                 bufferIn,
                 vertexBuffer,
-                15728880, // Full Brightness (MAX_LIGHT) for glowing effect
+                15728880,
                 OverlayTexture.NO_OVERLAY,
-                1.0f, 0.85f, 0.4f, alpha  // Amber tint: yellow-orange
+                1.0f, 0.85f, 0.4f, alpha
             );
         }
     }

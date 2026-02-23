@@ -21,9 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Toggle-style swarm shield action. Auto-summons stand if needed, auto-disables on recall.
- */
 public class AshesToAshesSwarmShield extends StandAction {
 
     private static final Map<UUID, Boolean> shieldStateMap = new ConcurrentHashMap<>();
@@ -101,7 +98,6 @@ public class AshesToAshesSwarmShield extends StandAction {
         shieldStateMap.remove(userId);
     }
 
-    /** Turn off shield and clear shield targets. */
     public static void turnOffShieldForUser(World world, LivingEntity user) {
         if (user != null) {
             shieldStateMap.remove(user.getUUID());

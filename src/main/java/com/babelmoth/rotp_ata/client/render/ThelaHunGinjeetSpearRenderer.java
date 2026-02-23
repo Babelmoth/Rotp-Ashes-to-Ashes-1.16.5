@@ -40,16 +40,13 @@ public class ThelaHunGinjeetSpearRenderer extends EntityRenderer<ThelaHunGinjeet
         if (!entity.isInvisible()) {
             matrixStack.pushPose();
 
-            // AlexsCaves 旋转链
             float yaw = MathHelper.lerp(partialTicks, entity.yRotO, entity.yRot) - 180.0F;
             float pitch = MathHelper.lerp(partialTicks, entity.xRotO, entity.xRot) + 90.0F;
             matrixStack.mulPose(Vector3f.YP.rotationDegrees(yaw));
             matrixStack.mulPose(Vector3f.XP.rotationDegrees(pitch));
 
-            // 翻转180度：本模型矛尖朝Y+，AlexsCaves假设矛尖朝Y-
             matrixStack.mulPose(Vector3f.XP.rotationDegrees(180.0F));
 
-            // 模型高47格（远超标准16格），缩放到合理飞行大小
             matrixStack.scale(0.7F, 0.7F, 0.7F);
 
             ItemStack modelStack = new ItemStack(InitItems.THELA_HUN_GINJEET_SPEAR_RENDER.get());
@@ -58,7 +55,7 @@ public class ThelaHunGinjeetSpearRenderer extends EntityRenderer<ThelaHunGinjeet
 
             matrixStack.popPose();
         }
-        // Always call super to allow glow outline rendering even when invisible
+
         super.render(entity, entityYaw, partialTicks, matrixStack, buffer, packedLight);
     }
 

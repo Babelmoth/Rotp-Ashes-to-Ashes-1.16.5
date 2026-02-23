@@ -1,11 +1,10 @@
 package com.babelmoth.rotp_ata.networking;
 
-import com.babelmoth.rotp_ata.capability.MothPoolProvider;
-import net.minecraft.client.Minecraft;
 import net.minecraft.nbt.CompoundNBT;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class MothPoolSyncPacket {
@@ -23,14 +22,13 @@ public class MothPoolSyncPacket {
         return new MothPoolSyncPacket(buf.readNbt());
     }
 
+    public CompoundNBT getNbt() { return nbt; }
+
+    private static Consumer<MothPoolSyncPacket> clientHandler;
+    public static void setClientHandler(Consumer<MothPoolSyncPacket> handler) { clientHandler = handler; }
+
     public static void handle(MothPoolSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            if (Minecraft.getInstance().player != null) {
-                Minecraft.getInstance().player.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                    pool.deserializeNBT(msg.nbt);
-                });
-            }
-        });
+        ctx.get().enqueueWork(() -> { if (clientHandler != null) clientHandler.accept(msg); });
         ctx.get().setPacketHandled(true);
     }
 }

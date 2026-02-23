@@ -1,11 +1,9 @@
 package com.babelmoth.rotp_ata.networking;
 
-import com.babelmoth.rotp_ata.capability.SpearThornProvider;
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SpearThornSyncPacket {
@@ -35,19 +33,17 @@ public class SpearThornSyncPacket {
         return new SpearThornSyncPacket(buf.readInt(), buf.readVarInt(), buf.readFloat(), buf.readFloat(), buf.readBoolean());
     }
 
+    public int getEntityId() { return entityId; }
+    public int getThornCount() { return thornCount; }
+    public float getDamageDealt() { return damageDealt; }
+    public float getDetachThreshold() { return detachThreshold; }
+    public boolean hasSpear() { return hasSpear; }
+
+    private static Consumer<SpearThornSyncPacket> clientHandler;
+    public static void setClientHandler(Consumer<SpearThornSyncPacket> handler) { clientHandler = handler; }
+
     public static void handle(SpearThornSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            Entity entity = Minecraft.getInstance().level != null
-                    ? Minecraft.getInstance().level.getEntity(msg.entityId) : null;
-            if (entity != null) {
-                entity.getCapability(SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
-                    cap.setThornCount(msg.thornCount);
-                    cap.setDamageDealt(msg.damageDealt);
-                    cap.setDetachThreshold(msg.detachThreshold);
-                    cap.setHasSpear(msg.hasSpear);
-                });
-            }
-        });
+        ctx.get().enqueueWork(() -> { if (clientHandler != null) clientHandler.accept(msg); });
         ctx.get().setPacketHandled(true);
     }
 }

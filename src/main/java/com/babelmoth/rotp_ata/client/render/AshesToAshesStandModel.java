@@ -6,15 +6,12 @@ import com.github.standobyte.jojo.client.render.entity.pose.ModelPose;
 import com.github.standobyte.jojo.client.render.entity.pose.RotationAngle;
 import com.babelmoth.rotp_ata.entity.AshesToAshesStandEntity;
 
-/**
- * Model for Ashes to Ashes Stand; swarm-type stand, body is not visible.
- */
 public class AshesToAshesStandModel extends HumanoidStandModel<AshesToAshesStandEntity> {
 
     public AshesToAshesStandModel() {
         super();
     }
-    
+
     @Override
     public void afterInit() {
         super.afterInit();
@@ -41,7 +38,7 @@ public class AshesToAshesStandModel extends HumanoidStandModel<AshesToAshesStand
             new RotationAngle[] {}
         };
     }
-    
+
     @Override
     protected void initActionPoses() {
     }

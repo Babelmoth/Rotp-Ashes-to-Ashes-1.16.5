@@ -38,6 +38,7 @@
   "rotp_ata.screen.moth_config.follow_ratio": "Follow Ratio",
 
   "stand.rotp_ata.thela_hun_ginjeet": "Thela Hun Ginjeet",
+  "entity.rotp_ata_thela_hun_ginjeet_spear": "Thela Hun Ginjeet",
   "action.rotp_ata.thela_hun_ginjeet_swift_thrust": "Swift Thrust",
   "action.rotp_ata.thela_hun_ginjeet_riptide_thrust": "Riptide Thrust",
   "action.rotp_ata.thela_hun_ginjeet_sweep": "Sweep",
@@ -48,7 +49,7 @@
   "action.rotp_ata.thela_hun_ginjeet_thorn_burst": "Thorn Burst",
   "item.rotp_ata.thela_hun_ginjeet_spear": "Thela Hun Ginjeet",
 
-  "block.rotp_ata.frozen_barrier": "Frozen Barrier",
+  "block.rotp_ata.frozen_barrier": "Stasis Barrier",
   "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action.",
   "jojo.ata.message.requires_stand_summoned": "Stand must be summoned",
   "jojo.ata.message.action_condition.ground_only": "Must target a block",
@@ -58,5 +59,18 @@
   "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place.",
 
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "Development S",
-  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "Enchant your Stand to over unleash its power"
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "Enchant your Stand to over unleash its power",
+
+  "death.attack.stand.spear": "%1$s was impaled by a Stand spear",
+  "death.attack.stand.spear.player": "%1$s was impaled by %2$s's Stand spear",
+  "death.attack.stand.spear_thrust": "%1$s was pierced by a swift thrust",
+  "death.attack.stand.spear_thrust.player": "%1$s was pierced by %2$s's swift thrust",
+  "death.attack.stand.spear_riptide": "%1$s was swept away by a riptide thrust",
+  "death.attack.stand.spear_riptide.player": "%1$s was swept away by %2$s's riptide thrust",
+  "death.attack.stand.spear_sweep": "%1$s was struck down by a sweeping spear",
+  "death.attack.stand.spear_sweep.player": "%1$s was struck down by %2$s's sweeping spear",
+  "death.attack.stand.spear_thorn": "%1$s was pierced by thorns",
+  "death.attack.stand.spear_thorn.player": "%1$s was pierced by %2$s's thorns",
+  "death.attack.stand.thorn_burst": "%1$s was shredded by a thorn burst",
+  "death.attack.stand.thorn_burst.player": "%1$s was shredded by %2$s's thorn burst"
 }

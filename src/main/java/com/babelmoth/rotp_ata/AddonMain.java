@@ -23,7 +23,7 @@ public class AddonMain {
     public AddonMain() {
         GeckoLib.initialize();
         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.register();
-        
+
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         InitEntities.ENTITIES.register(modEventBus);
@@ -34,11 +34,11 @@ public class AddonMain {
         com.babelmoth.rotp_ata.init.InitParticles.PARTICLES.register(modEventBus);
         com.babelmoth.rotp_ata.init.InitBlocks.BLOCKS.register(modEventBus);
         com.babelmoth.rotp_ata.init.InitBlocks.TILE_ENTITIES.register(modEventBus);
-        
+
         modEventBus.addListener(this::onEntityAttributeCreation);
         modEventBus.addListener(this::setup);
     }
-    
+
     private void setup(final net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent event) {
         net.minecraftforge.common.capabilities.CapabilityManager.INSTANCE.register(
             com.babelmoth.rotp_ata.capability.ISpearStuck.class,
@@ -95,7 +95,7 @@ public class AddonMain {
         );
 
     }
-    
+
     private void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
         event.put(InitEntities.FOSSIL_MOTH.get(), FossilMothEntity.createAttributes().build());
     }

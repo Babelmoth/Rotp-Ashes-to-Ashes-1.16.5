@@ -18,10 +18,6 @@ import net.minecraft.world.World;
 
 import java.util.List;
 
-/**
- * Grab Dash (shift variant): Dash the player towards the nearest spear-stuck entity
- * or spear stuck in a block. Blocked by solid blocks in the path. Resolve level 2 to unlock.
- */
 public class ThelaHunGinjeetGrabDash extends StandAction {
     private static final double DASH_RANGE = 50.0;
     private static final double DASH_SPEED = 3.0;
@@ -61,7 +57,6 @@ public class ThelaHunGinjeetGrabDash extends StandAction {
         Vector3d direction = targetPos.subtract(userPos).normalize();
         double dist = userPos.distanceTo(targetPos);
 
-        // Check for block obstruction - find max safe distance
         double safeDist = dist;
         for (double d = 1.0; d < dist; d += 1.0) {
             Vector3d check = userPos.add(direction.scale(d));
@@ -74,7 +69,6 @@ public class ThelaHunGinjeetGrabDash extends StandAction {
 
         if (safeDist < 1.0) return;
 
-        // Dash towards target (stop 1.5 blocks before)
         double dashDist = Math.max(0, Math.min(safeDist, dist - 1.5));
         double speed = Math.min(DASH_SPEED, dashDist * 0.5);
         user.setDeltaMovement(direction.scale(speed));
@@ -83,16 +77,11 @@ public class ThelaHunGinjeetGrabDash extends StandAction {
         user.playSound(SoundEvents.CHAIN_PLACE, 1.0F, 1.2F);
     }
 
-    /**
-     * Find the nearest dash target: either a LivingEntity with stuck spears,
-     * or a ThelaHunGinjeetSpearEntity stuck in a block (owned by the user).
-     */
     private Entity findNearestDashTarget(LivingEntity user) {
         AxisAlignedBB searchBox = user.getBoundingBox().inflate(DASH_RANGE);
         Entity nearest = null;
         double nearestDist = Double.MAX_VALUE;
 
-        // Search for living entities with stuck spears
         for (Entity entity : user.level.getEntities(user, searchBox, e -> e instanceof LivingEntity && e.isAlive())) {
             LivingEntity living = (LivingEntity) entity;
             boolean[] hasStuck = {false};
@@ -110,7 +99,6 @@ public class ThelaHunGinjeetGrabDash extends StandAction {
             }
         }
 
-        // Search for spear entities stuck in blocks (inGround, owned by user)
         for (ThelaHunGinjeetSpearEntity spear : user.level.getEntitiesOfClass(
                 ThelaHunGinjeetSpearEntity.class, searchBox,
                 e -> e.isAlive() && !e.isRecalled() && !e.isBurstMode() && e.isInvisible() == false && user.equals(e.getOwner()))) {

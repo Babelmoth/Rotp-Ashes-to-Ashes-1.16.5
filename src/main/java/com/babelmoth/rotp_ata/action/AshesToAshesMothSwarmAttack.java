@@ -24,7 +24,6 @@ import net.minecraft.world.World;
 
 public class AshesToAshesMothSwarmAttack extends StandAction {
 
-    /** Pending delayed swarm attack (queued when stand is freshly summoned). */
     private static final Map<UUID, PendingSwarm> PENDING_SWARM = new ConcurrentHashMap<>();
     private static final int DELAY_TICKS = 3;
 
@@ -37,7 +36,6 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         }
     }
 
-    /** Tick pending delayed swarm attacks (called from ServerTickEvent). */
     public static void tickPendingSwarmAttacks(net.minecraft.world.server.ServerWorld world) {
         long now = world.getGameTime();
         PENDING_SWARM.entrySet().removeIf(entry -> {
@@ -57,7 +55,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
     public AshesToAshesMothSwarmAttack(AbstractBuilder<?> builder) {
         super(builder);
     }
-    
+
     @Override
     public TargetRequirement getTargetRequirement() {
         return TargetRequirement.NONE;

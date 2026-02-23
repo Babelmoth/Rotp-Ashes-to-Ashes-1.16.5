@@ -25,7 +25,7 @@ public class FrozenBarrierBlock extends Block {
 
     public FrozenBarrierBlock() {
         super(AbstractBlock.Properties.of(Material.BARRIER)
-                .strength(-1.0F, 3600000.0F) // Unbreakable like bedrock
+                .strength(5.0F, 3600000.0F)
                 .noDrops()
                 .noOcclusion()
                 .isValidSpawn((state, world, pos, type) -> false)
@@ -47,7 +47,7 @@ public class FrozenBarrierBlock extends Block {
 
     @Override
     public BlockRenderType getRenderShape(BlockState state) {
-        return BlockRenderType.ENTITYBLOCK_ANIMATED; // Rendered by TileEntityRenderer
+        return BlockRenderType.ENTITYBLOCK_ANIMATED;
     }
 
     @Override
@@ -57,7 +57,7 @@ public class FrozenBarrierBlock extends Block {
 
     @Override
     public VoxelShape getCollisionShape(BlockState state, IBlockReader world, BlockPos pos, ISelectionContext context) {
-        // Owner can pass through if barrierPassthrough is enabled in config
+
         Entity entity = context.getEntity();
         if (entity != null && world instanceof World) {
             TileEntity te = ((World)world).getBlockEntity(pos);
@@ -70,28 +70,71 @@ public class FrozenBarrierBlock extends Block {
                                 .map(com.babelmoth.rotp_ata.capability.IMothPool::isBarrierPassthrough)
                                 .orElse(true);
                         if (passthrough) {
-                            return VoxelShapes.empty(); // Owner can pass through
+                            return VoxelShapes.empty();
                         }
                     } else {
-                        return VoxelShapes.empty(); // Non-living owner entities pass through by default
+                        return VoxelShapes.empty();
                     }
                 }
             }
         }
-        return VoxelShapes.block(); // Others are blocked
+        return VoxelShapes.block();
     }
 
     @Override
     public void attack(BlockState state, World world, BlockPos pos, PlayerEntity player) {
-        // Add kinetic energy when attacked
-        if (!world.isClientSide) {
+        spawnDustParticles(world, pos);
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    @Override
+    public boolean addDestroyEffects(BlockState state, World world, BlockPos pos, net.minecraft.client.particle.ParticleManager manager) {
+        spawnDustParticles(world, pos);
+        return true;
+    }
+
+    @net.minecraftforge.api.distmarker.OnlyIn(net.minecraftforge.api.distmarker.Dist.CLIENT)
+    @Override
+    public boolean addHitEffects(BlockState state, World world, net.minecraft.util.math.RayTraceResult target, net.minecraft.client.particle.ParticleManager manager) {
+        if (target instanceof net.minecraft.util.math.BlockRayTraceResult) {
+            spawnDustParticles(world, ((net.minecraft.util.math.BlockRayTraceResult) target).getBlockPos());
+        }
+        return true;
+    }
+
+    private static void spawnDustParticles(World world, BlockPos pos) {
+        double cx = pos.getX() + 0.5;
+        double cy = pos.getY() + 0.5;
+        double cz = pos.getZ() + 0.5;
+        for (int i = 0; i < 6; i++) {
+            double dx = (world.random.nextDouble() - 0.5) * 0.3;
+            double dy = (world.random.nextDouble() - 0.5) * 0.3;
+            double dz = (world.random.nextDouble() - 0.5) * 0.3;
+            world.addParticle(com.babelmoth.rotp_ata.init.InitParticles.FOSSIL_ASH.get(),
+                    cx + dx, cy + dy, cz + dz,
+                    dx * 0.5, dy * 0.5, dz * 0.5);
+        }
+    }
+
+    @Override
+    public float getDestroyProgress(BlockState state, PlayerEntity player, IBlockReader world, BlockPos pos) {
+
+        player.getDigSpeed(state, pos);
+
+        return 0.00001F;
+    }
+
+    @SuppressWarnings("deprecation")
+    @Override
+    public void onRemove(BlockState state, World world, BlockPos pos, BlockState newState, boolean isMoving) {
+        if (!state.is(newState.getBlock())) {
             TileEntity te = world.getBlockEntity(pos);
             if (te instanceof FrozenBarrierBlockEntity) {
                 FrozenBarrierBlockEntity barrier = (FrozenBarrierBlockEntity) te;
-                // Base damage from punch = ~1-2
-                barrier.addKineticEnergy(2);
+                barrier.onBarrierDestroyed();
             }
         }
+        super.onRemove(state, world, pos, newState, isMoving);
     }
 
     @Override

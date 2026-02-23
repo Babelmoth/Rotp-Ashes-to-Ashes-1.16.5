@@ -28,7 +28,7 @@ public class AshesToAshesSwarmGuardian extends StandAction {
     public AshesToAshesSwarmGuardian(AbstractBuilder<?> builder) {
         super(builder);
     }
-    
+
     @Override
     public String getTranslationKey(IStandPower power, ActionTarget target) {
         return "action.rotp_ata.ashes_to_ashes_swarm_shield_target";

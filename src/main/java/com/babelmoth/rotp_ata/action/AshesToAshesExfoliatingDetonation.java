@@ -16,7 +16,7 @@ public class AshesToAshesExfoliatingDetonation extends StandAction {
     public AshesToAshesExfoliatingDetonation(AbstractBuilder<?> builder) {
         super(builder);
     }
-    
+
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {

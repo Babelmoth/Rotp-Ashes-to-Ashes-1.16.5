@@ -36,7 +36,7 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
 
     @Override
     protected void updatePositions(List<MarkerInstance> list, float partialTick) {
-        // Show marker on the entity the player/stand is looking at
+
         Entity target = getLookedAtEntity(mc.player, partialTick);
         if (target != null) {
             list.add(new MarkerInstance(
@@ -46,13 +46,12 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
             ));
         }
     }
-    
+
     private Entity getLookedAtEntity(LivingEntity player, float partialTick) {
         Vector3d eyePos;
         Vector3d lookVec;
         Entity viewEntity = player;
-        
-        // Check if Stand is in remote control mode
+
         java.util.Optional<IStandPower> powerOpt = IStandPower.getStandPowerOptional(player).resolve();
         if (powerOpt.isPresent()) {
             IStandPower power = powerOpt.get();
@@ -60,7 +59,7 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
             if (stand instanceof StandEntity) {
                 StandEntity standEntity = (StandEntity) stand;
                 if (standEntity.isManuallyControlled()) {
-                    // Use Stand's perspective
+
                     viewEntity = standEntity;
                     eyePos = standEntity.getEyePosition(partialTick);
                     lookVec = standEntity.getViewVector(partialTick);
@@ -76,38 +75,38 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
             eyePos = player.getEyePosition(partialTick);
             lookVec = player.getViewVector(partialTick);
         }
-        
+
         Vector3d maxVec = eyePos.add(lookVec.x * RANGE, lookVec.y * RANGE, lookVec.z * RANGE);
         AxisAlignedBB aabb = viewEntity.getBoundingBox().expandTowards(lookVec.scale(RANGE)).inflate(1.0D, 1.0D, 1.0D);
-        
+
         final Entity finalViewEntity = viewEntity;
         final LivingEntity finalPlayer = player;
         EntityRayTraceResult result = ProjectileHelper.getEntityHitResult(
-            viewEntity, 
-            eyePos, 
-            maxVec, 
-            aabb, 
+            viewEntity,
+            eyePos,
+            maxVec,
+            aabb,
             entity -> {
-                // Exclude spectators and self
+
                 if (entity.isSpectator() || entity == finalPlayer || entity == finalViewEntity || entity instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
                     return false;
                 }
-                // Living entities: must be pickable and alive
+
                 if (entity instanceof LivingEntity) {
                     return entity.isPickable() && ((LivingEntity) entity).isAlive();
                 }
                 if (entity instanceof ItemEntity) {
                     ItemEntity itemEntity = (ItemEntity) entity;
-                    // Valid item: not removed, non-empty stack, not already claimed by a moth
-                    return !itemEntity.removed 
+
+                    return !itemEntity.removed
                         && !itemEntity.getItem().isEmpty()
                         && !itemEntity.getPersistentData().getBoolean("ata_retrieved");
                 }
                 return false;
-            }, 
+            },
             RANGE * RANGE
         );
-        
+
         if (result != null) {
             return result.getEntity();
         }

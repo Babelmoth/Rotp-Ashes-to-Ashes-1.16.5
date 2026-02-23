@@ -21,13 +21,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 
-/**
- * Block: Hold to raise spear and reduce incoming damage.
- * Damage reduction based on stand durability and power (like RotP's stand block).
- * Similar to RotP's stand block mechanic.
- */
 public class ThelaHunGinjeetBlock extends StandAction {
-    // Track which entities are currently blocking
+
     private static final Set<LivingEntity> BLOCKING_ENTITIES = Collections.newSetFromMap(new WeakHashMap<>());
     private static final UUID BLOCK_SLOW_UUID = UUID.fromString("e1f2a3b4-c5d6-7890-abcd-ef1234567894");
 
@@ -84,7 +79,7 @@ public class ThelaHunGinjeetBlock extends StandAction {
 
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
-        // holdOnly mode: logic is in hold callbacks
+
     }
 
     private static void applySlowModifier(LivingEntity user) {
@@ -99,17 +94,10 @@ public class ThelaHunGinjeetBlock extends StandAction {
         if (speed != null) speed.removeModifier(BLOCK_SLOW_UUID);
     }
 
-    /**
-     * Check if an entity is currently blocking with the spear.
-     */
     public static boolean isBlocking(LivingEntity entity) {
         return BLOCKING_ENTITIES.contains(entity);
     }
 
-    /**
-     * Calculate damage reduction ratio based on stand durability and power.
-     * Uses RotP's StandStatFormulas.getPhysicalResistance algorithm.
-     */
     public static float getBlockReduction(IStandPower power, float damageAmount) {
         IStandManifestation manifestation = power.getStandManifestation();
         double durability;
@@ -119,7 +107,7 @@ public class ThelaHunGinjeetBlock extends StandAction {
             durability = stand.getDurability();
             strength = stand.getAttackDamage();
         } else {
-            // Fallback: use base stats
+
             durability = 16.0;
             strength = 12.0;
         }

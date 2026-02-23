@@ -18,10 +18,6 @@ import net.minecraft.world.World;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Grab Pull: Pull entities that have spears stuck in them towards the player.
- * Blocked by solid blocks in the path. Resolve level 2 to unlock.
- */
 public class ThelaHunGinjeetGrabPull extends StandAction {
     private static final double PULL_RANGE = 50.0;
     private static final double PULL_SPEED = 2.5;
@@ -41,7 +37,7 @@ public class ThelaHunGinjeetGrabPull extends StandAction {
         if (power.getStamina() < STAMINA_COST) {
             return ActionConditionResult.NEGATIVE;
         }
-        // Check if there are any stuck entities in range
+
         if (!user.level.isClientSide && !hasStuckEntitiesInRange(user)) {
             return ActionConditionResult.NEGATIVE;
         }
@@ -62,10 +58,8 @@ public class ThelaHunGinjeetGrabPull extends StandAction {
             Vector3d direction = userPos.subtract(entityPos).normalize();
             double dist = userPos.distanceTo(entityPos);
 
-            // Check for block obstruction
             if (isPathBlocked(world, entityPos, userPos)) continue;
 
-            // Pull speed scales with distance
             double speed = Math.min(PULL_SPEED, dist * 0.5);
             entity.setDeltaMovement(direction.scale(speed));
             entity.hurtMarked = true;
@@ -96,9 +90,6 @@ public class ThelaHunGinjeetGrabPull extends StandAction {
         return result;
     }
 
-    /**
-     * Check if path between two points is blocked by solid blocks.
-     */
     private boolean isPathBlocked(World world, Vector3d from, Vector3d to) {
         Vector3d dir = to.subtract(from).normalize();
         double dist = from.distanceTo(to);

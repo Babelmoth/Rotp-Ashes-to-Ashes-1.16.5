@@ -15,17 +15,16 @@ public class AshSmokeLargeParticle extends SpriteTexturedParticle {
 
     protected AshSmokeLargeParticle(ClientWorld world, double x, double y, double z, double vx, double vy, double vz) {
         super(world, x, y, z, 0, 0, 0);
-        this.scale(25.0F); // Very large smoke bomb particles
+        this.scale(25.0F);
         this.setSize(0.5F, 0.5F);
-        this.lifetime = this.random.nextInt(100) + 200; // 10-15 seconds
+        this.lifetime = this.random.nextInt(100) + 200;
         this.gravity = 0;
         this.hasPhysics = false;
-        
+
         this.xd = 0;
         this.yd = 0;
         this.zd = 0;
-        
-        // Gray/ash color (original)
+
         float gray = 0.4f + this.random.nextFloat() * 0.2f;
         this.rCol = gray;
         this.gCol = gray;
@@ -37,11 +36,11 @@ public class AshSmokeLargeParticle extends SpriteTexturedParticle {
         this.yo = this.y;
         this.zo = this.z;
         if (this.age++ < this.lifetime) {
-            // Very gentle random drift
+
             this.xd += (double)(this.random.nextFloat() / 10000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
             this.zd += (double)(this.random.nextFloat() / 10000.0F * (float)(this.random.nextBoolean() ? 1 : -1));
             this.move(this.xd, this.yd, this.zd);
-            // No fade - instant disappear when lifetime ends
+
         } else {
             this.remove();
         }

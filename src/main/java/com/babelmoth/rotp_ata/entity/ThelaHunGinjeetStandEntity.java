@@ -49,29 +49,28 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
 
         if (user instanceof PlayerEntity) {
             ensureSingleSpearForUser((PlayerEntity) user);
-            // 持续保存长矛附魔数据到玩家 persistent data
+
             saveSpearEnchantments((PlayerEntity) user);
-            // 根据附魔更新替身属性
+
             applyEnchantmentStatModifiers((PlayerEntity) user);
-            // 替身已恢复活跃，清除死亡保护标记
+
             SpearEnchantHelper.clearDeathProtection((PlayerEntity) user);
         }
     }
 
     private void ensureSingleSpearForUser(PlayerEntity user) {
-        // 1. 检查是否有已投掷的长矛实体
+
         if (hasThrownSpear(user)) {
             removeAllSpearsFromInventory(user);
             return;
         }
 
-        // 2. 检查背包中是否已有长矛
         int countInInv = countSpearsInInventory(user);
         if (countInInv == 1) {
             return;
         }
         if (countInInv > 1) {
-            // 多余的移除，只保留一把
+
             int toRemove = countInInv - 1;
             for (int i = 0; i < user.inventory.getContainerSize() && toRemove > 0; i++) {
                 ItemStack stack = user.inventory.getItem(i);
@@ -84,18 +83,16 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
             return;
         }
 
-        // 3. 背包中没有长矛，通过 tracker UUID 检查长矛是否存在于世界其他位置（箱子、地面、附魔台等）
         UUID trackerUUID = getSpearTrackerUUID(user);
         if (trackerUUID != null) {
             SidedItemTrackerMap trackerMap = SidedItemTrackerMap.getSidedTrackers(user.level);
             TrackerItemStack tracker = trackerMap.getTracker(trackerUUID);
             if (tracker != null && tracker.isTracked()) {
-                // 标记仍存在 → 长矛在某处（箱子/地面/其他容器），不生成新的
+
                 return;
             }
         }
 
-        // 4. 没有长矛 → 创建新的并标记 tracker，恢复附魔
         ItemStack spear = new ItemStack(InitItems.THELA_HUN_GINJEET_SPEAR.get());
         SpearEnchantHelper.restoreEnchantments(user, spear);
         if (user instanceof ServerPlayerEntity) {
@@ -138,7 +135,6 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
     private void applyEnchantmentStatModifiers(PlayerEntity user) {
         ItemStack spear = SpearEnchantHelper.getSpearFromPlayer(user);
 
-        // 锋利 → 替身攻击力 (1.0 + 0.5 * (level - 1))
         ModifiableAttributeInstance attackAttr = this.getAttribute(Attributes.ATTACK_DAMAGE);
         if (attackAttr != null) {
             attackAttr.removeModifier(SHARPNESS_MODIFIER_UUID);
@@ -150,7 +146,6 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
             }
         }
 
-        // 耐久 → 替身持久力 (每级 +2.0)
         ModifiableAttributeInstance durabilityAttr = this.getAttribute(ModEntityAttributes.STAND_DURABILITY.get());
         if (durabilityAttr != null) {
             durabilityAttr.removeModifier(UNBREAKING_MODIFIER_UUID);
@@ -224,9 +219,9 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
         if (user instanceof PlayerEntity) {
             PlayerEntity player = (PlayerEntity) user;
             removeAllSpearsFromInventory(player);
-            // 清除世界内属于自己的所有长矛实体，并清除对应目标身上的stuck/thorn数据
+
             removeAllThrownSpears(player);
-            // 清除 tracker 标记和被追踪的长矛（箱子/地面/其他玩家等）
+
             clearTrackedSpear(player);
         }
     }
@@ -235,20 +230,20 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
         AxisAlignedBB box = player.getBoundingBox().inflate(128.0);
         for (ThelaHunGinjeetSpearEntity spear : player.level.getEntitiesOfClass(ThelaHunGinjeetSpearEntity.class, box,
                 e -> e.isAlive() && player.equals(e.getOwner()))) {
-            // 如果长矛插在目标身上，清除目标的stuck和thorn数据
+
             int targetId = spear.getStuckTargetId();
             if (targetId >= 0) {
                 net.minecraft.entity.Entity target = player.level.getEntity(targetId);
                 if (target instanceof LivingEntity) {
                     LivingEntity livingTarget = (LivingEntity) target;
-                    // 清除stuck数
+
                     livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearStuckProvider.SPEAR_STUCK_CAPABILITY).ifPresent(cap -> {
                         cap.setSpearCount(0);
                         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
                                 net.minecraftforge.fml.network.PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> livingTarget),
                                 new com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket(livingTarget.getId(), 0));
                     });
-                    // 清除thorn数据
+
                     livingTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
                         cap.reset();
                         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.CHANNEL.send(
@@ -269,14 +264,14 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
             SidedItemTrackerMap trackerMap = SidedItemTrackerMap.getSidedTrackers(player.level);
             TrackerItemStack tracker = trackerMap.getTracker(trackerUUID);
             if (tracker != null) {
-                // 清除被追踪的物品本身（使其从箱子/地面/其他玩家背包中消失）
+
                 ItemStack trackedItem = tracker.getItem();
                 if (trackedItem != null && !trackedItem.isEmpty()) {
                     trackedItem.setCount(0);
                 }
                 trackerMap.removeTracker(trackerUUID);
             }
-            // 清除玩家身上存储的 tracker UUID
+
             player.getPersistentData().remove(SPEAR_TRACKER_KEY + "Most");
             player.getPersistentData().remove(SPEAR_TRACKER_KEY + "Least");
         }

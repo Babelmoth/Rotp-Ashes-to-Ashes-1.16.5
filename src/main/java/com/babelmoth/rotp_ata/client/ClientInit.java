@@ -35,15 +35,17 @@ import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 @EventBusSubscriber(modid = AddonMain.MOD_ID, bus = EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public class ClientInit {
-    
+
     @SubscribeEvent
     public static void onFMLClientSetup(FMLClientSetupEvent event) {
+        com.babelmoth.rotp_ata.networking.ClientPacketHandler.registerHandlers();
+
         RenderingRegistry.registerEntityRenderingHandler(
                 InitStands.STAND_ASHES_TO_ASHES.getEntityType(), AshesToAshesStandRenderer::new);
 
         RenderingRegistry.registerEntityRenderingHandler(
                 InitStands.STAND_THELA_HUN_GINJEET.getEntityType(), ThelaHunGinjeetStandRenderer::new);
-        
+
         RenderingRegistry.registerEntityRenderingHandler(
                 InitEntities.FOSSIL_MOTH.get(), FossilMothRenderer::new);
 
@@ -56,7 +58,6 @@ public class ClientInit {
         RenderingRegistry.registerEntityRenderingHandler(
                 InitEntities.SPEAR_SPIKE_ENTITY.get(), com.babelmoth.rotp_ata.client.render.SpearSpikeRenderer::new);
 
-        // Register stand_invisible item property for spear
         IItemPropertyGetter standItemInvisible = (itemStack, clientWorld, livingEntity) -> {
             return !ClientUtil.canSeeStands() ? 1 : 0;
         };
@@ -66,7 +67,6 @@ public class ClientInit {
                     standItemInvisible);
         });
 
-        // Register markers
         event.enqueueWork(() -> {
             MarkerRenderer.Handler.addRenderer(new MothSwarmAttackMarker(Minecraft.getInstance()));
             MarkerRenderer.Handler.addRenderer(new MothKineticDetonationMarker(Minecraft.getInstance()));
@@ -74,12 +74,10 @@ public class ClientInit {
             MarkerRenderer.Handler.addRenderer(new SpearRecallMarker(Minecraft.getInstance()));
             MarkerRenderer.Handler.addRenderer(new com.babelmoth.rotp_ata.client.ui.marker.ThornBurstMarker(Minecraft.getInstance()));
 
-            // 注册长矛插入渲染层到玩家渲染器
             java.util.Map<String, PlayerRenderer> skinMap = Minecraft.getInstance().getEntityRenderDispatcher().getSkinMap();
             skinMap.get("default").addLayer(new SpearStuckLayer<>(skinMap.get("default")));
             skinMap.get("slim").addLayer(new SpearStuckLayer<>(skinMap.get("slim")));
 
-            // 注册长矛插入渲染层到所有非玩家 LivingRenderer
             Minecraft.getInstance().getEntityRenderDispatcher().renderers.values().forEach(renderer -> {
                 if (renderer instanceof LivingRenderer && !(renderer instanceof PlayerRenderer)) {
                     addSpearLayerToRenderer((LivingRenderer<?, ?>) renderer);

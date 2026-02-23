@@ -16,15 +16,11 @@ import net.minecraft.util.SoundEvents;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
 
-/**
- * Moth jet: standalone skill, can be held to keep firing and consumes stamina.
- * Fired moths attach on entity hit; otherwise they despawn on block hit or after flight time (no pool decrement).
- */
 public class AshesToAshesMothJet extends StandAction {
 
     private static final float STAMINA_COST_PER_MOTH = 35.0f;
-    private static final int TICKS_PER_MOTH = 4; // One moth every 4 ticks
-    private static final int TICKS_PER_MOTH_RESOLVE = 3; // Faster during Resolve
+    private static final int TICKS_PER_MOTH = 4;
+    private static final int TICKS_PER_MOTH_RESOLVE = 3;
     private static final float JET_SPEED = 2.5f;
     private static final float JET_SPEED_RESOLVE = 3.5f;
 
@@ -56,7 +52,7 @@ public class AshesToAshesMothJet extends StandAction {
 
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
-        // Single click also fires one moth
+
         if (!world.isClientSide && power.getStamina() >= STAMINA_COST_PER_MOTH) {
             trySpawnJetMoth(world, user, power);
         }

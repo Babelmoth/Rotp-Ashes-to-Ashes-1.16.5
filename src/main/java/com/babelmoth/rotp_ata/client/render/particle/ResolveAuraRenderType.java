@@ -31,7 +31,7 @@ public class ResolveAuraRenderType implements IParticleRenderType {
         RenderSystem.disableLighting();
 
         textureManager.bind(AtlasTexture.LOCATION_PARTICLES);
-        // 纹理模糊随RotP设置开关（与HamonAuraParticleRenderType完全一致）
+
         if (ClientModSettings.getSettingsReadOnly().hamonAuraBlur) {
             textureManager.getTexture(AtlasTexture.LOCATION_PARTICLES).setBlurMipmap(true, false);
         }

@@ -6,11 +6,8 @@ import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import net.minecraft.util.ResourceLocation;
 import software.bernie.geckolib3.model.AnimatedGeoModel;
 
-/**
- * GeckoLib fossil moth model; loads ashes_to_ashes.geo.json and ashes_to_ashes.animation.json.
- */
 public class FossilMothModel extends AnimatedGeoModel<FossilMothEntity> {
-    
+
     @Override
     public ResourceLocation getModelLocation(FossilMothEntity entity) {
         return new ResourceLocation(AddonMain.MOD_ID, "geo/ashes_to_ashes.geo.json");

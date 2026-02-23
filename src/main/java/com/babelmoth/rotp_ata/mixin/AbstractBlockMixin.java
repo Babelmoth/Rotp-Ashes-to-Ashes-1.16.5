@@ -17,12 +17,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 @Mixin(AbstractBlock.class)
 public class AbstractBlockMixin {
 
-    // Block Interaction (Right Click)
-    // Intercepts usage before block logic runs (Door toggle, Button press, etc.)
     @Inject(method = "use", at = @At("HEAD"), cancellable = true)
     public void onUse(BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, BlockRayTraceResult hit, CallbackInfoReturnable<ActionResultType> cir) {
         if (AshesToAshesEventHandler.getProtectingMothCount(world, pos) > 0) {
-            // Strictly fail interaction
+
             cir.setReturnValue(ActionResultType.FAIL);
         }
     }

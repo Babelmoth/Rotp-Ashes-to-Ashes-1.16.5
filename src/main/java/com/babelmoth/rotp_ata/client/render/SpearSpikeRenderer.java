@@ -15,10 +15,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.vector.Vector3f;
 
-/**
- * Renderer for decorative spear spike entities.
- * Uses the same spear model as the thrown spear.
- */
 public class SpearSpikeRenderer extends EntityRenderer<SpearSpikeEntity> {
     private final ItemRenderer itemRenderer;
 
@@ -32,13 +28,11 @@ public class SpearSpikeRenderer extends EntityRenderer<SpearSpikeEntity> {
             IRenderTypeBuffer buffer, int packedLight) {
         matrixStack.pushPose();
 
-        // Apply spike rotation (model tip is Y+, no flip needed for ground spikes)
         float yaw = entity.getSpikeYaw();
         float pitch = entity.getSpikePitch();
         matrixStack.mulPose(Vector3f.YP.rotationDegrees(yaw));
         matrixStack.mulPose(Vector3f.XP.rotationDegrees(pitch));
 
-        // Scale to match thrown spear
         matrixStack.scale(0.7F, 0.7F, 0.7F);
 
         ItemStack modelStack = new ItemStack(InitItems.THELA_HUN_GINJEET_SPEAR_RENDER.get());

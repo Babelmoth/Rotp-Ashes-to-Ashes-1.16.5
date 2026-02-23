@@ -1,17 +1,12 @@
 package com.babelmoth.rotp_ata.networking;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.LivingEntity;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fml.network.NetworkEvent;
 
-import java.util.OptionalInt;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class SpearMarkSyncPacket {
-    private static final int PURPLE_COLOR = 0x8B00FF;
-
     private final int targetEntityId;
     private final int ownerEntityId;
     private final int durationTicks;
@@ -32,20 +27,15 @@ public class SpearMarkSyncPacket {
         return new SpearMarkSyncPacket(buf.readInt(), buf.readInt(), buf.readVarInt());
     }
 
-    public static void handle(SpearMarkSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
-        ctx.get().enqueueWork(() -> {
-            if (Minecraft.getInstance().level == null) return;
-            // 只有长矛主人才能看到标记
-            Entity clientPlayer = Minecraft.getInstance().player;
-            if (clientPlayer == null || clientPlayer.getId() != msg.ownerEntityId) return;
+    public int getTargetEntityId() { return targetEntityId; }
+    public int getOwnerEntityId() { return ownerEntityId; }
+    public int getDurationTicks() { return durationTicks; }
 
-            Entity target = Minecraft.getInstance().level.getEntity(msg.targetEntityId);
-            if (target instanceof LivingEntity) {
-                target.getCapability(com.github.standobyte.jojo.capability.entity.EntityUtilCapProvider.CAPABILITY).ifPresent(cap -> {
-                    cap.setClGlowingColor(OptionalInt.of(PURPLE_COLOR), msg.durationTicks);
-                });
-            }
-        });
+    private static Consumer<SpearMarkSyncPacket> clientHandler;
+    public static void setClientHandler(Consumer<SpearMarkSyncPacket> handler) { clientHandler = handler; }
+
+    public static void handle(SpearMarkSyncPacket msg, Supplier<NetworkEvent.Context> ctx) {
+        ctx.get().enqueueWork(() -> { if (clientHandler != null) clientHandler.accept(msg); });
         ctx.get().setPacketHandled(true);
     }
 }

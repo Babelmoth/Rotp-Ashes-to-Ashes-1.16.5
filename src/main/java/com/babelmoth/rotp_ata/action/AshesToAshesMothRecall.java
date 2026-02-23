@@ -26,17 +26,15 @@ public class  AshesToAshesMothRecall extends StandAction {
     @Override
     protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            // Get attached moths (entity-attached)
+
             List<FossilMothEntity> attachedMoths = MothQueryUtil.getAttachedMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
-            
-            // Get block-attached moths
+
             List<FossilMothEntity> blockMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
             blockMoths.removeIf(m -> !m.isAttached());
-            
+
             ArrayList<FossilMothEntity> activeMoths = new ArrayList<>(attachedMoths);
             activeMoths.addAll(blockMoths);
-            
-            // Find the furthest attached moth
+
             FossilMothEntity furthestMoth = null;
             double maxDist = 0;
             for (FossilMothEntity moth : activeMoths) {
@@ -46,8 +44,7 @@ public class  AshesToAshesMothRecall extends StandAction {
                     furthestMoth = moth;
                 }
             }
-            
-            // Also check barriers - find the furthest barrier
+
             List<BlockPos> barriers = AshesToAshesFrozenBarrier.getPlayerBarriers(user.getUUID());
             BlockPos furthestBarrier = null;
             for (BlockPos pos : barriers) {
@@ -56,12 +53,11 @@ public class  AshesToAshesMothRecall extends StandAction {
                     if (dist > maxDist) {
                         maxDist = dist;
                         furthestBarrier = pos;
-                        furthestMoth = null; // Barrier is further
+                        furthestMoth = null;
                     }
                 }
             }
-            
-            // Recall the furthest one
+
             if (furthestMoth != null) {
                 furthestMoth.recall();
             } else if (furthestBarrier != null) {

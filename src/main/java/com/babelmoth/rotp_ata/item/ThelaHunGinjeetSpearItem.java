@@ -44,11 +44,8 @@ public class ThelaHunGinjeetSpearItem extends Item {
     public ThelaHunGinjeetSpearItem(Properties properties) {
         super(properties);
         ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-        // 基础攻击伤害 1 + 7 = 8 (matches stand power 8.0)
         builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", 7.0D, AttributeModifier.Operation.ADDITION));
-        // 攻速: 基础 4 - 3.0 = 1.0
         builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Weapon modifier", -3.0D, AttributeModifier.Operation.ADDITION));
-        // 攻击范围加成 +1
         if (ForgeMod.REACH_DISTANCE.isPresent()) {
             builder.put(ForgeMod.REACH_DISTANCE.get(), new AttributeModifier(java.util.UUID.fromString("7a1b2c3d-4e5f-6789-abcd-ef0123456789"), "Weapon modifier", 1.0D, AttributeModifier.Operation.ADDITION));
         }
@@ -60,11 +57,9 @@ public class ThelaHunGinjeetSpearItem extends Item {
         if (slot != EquipmentSlotType.MAINHAND) {
             return super.getAttributeModifiers(slot, stack);
         }
-        // Check if the stack has stand-scaled damage stored in NBT
         if (stack.hasTag() && stack.getTag().contains("StandScaledDamage")) {
             double scaledDamage = stack.getTag().getDouble("StandScaledDamage");
             ImmutableMultimap.Builder<Attribute, AttributeModifier> builder = ImmutableMultimap.builder();
-            // scaledDamage is the final damage value; subtract 1 for base hand damage
             builder.put(Attributes.ATTACK_DAMAGE, new AttributeModifier(BASE_ATTACK_DAMAGE_UUID, "Weapon modifier", scaledDamage - 1.0D, AttributeModifier.Operation.ADDITION));
             builder.put(Attributes.ATTACK_SPEED, new AttributeModifier(BASE_ATTACK_SPEED_UUID, "Weapon modifier", -3.0D, AttributeModifier.Operation.ADDITION));
             if (ForgeMod.REACH_DISTANCE.isPresent()) {
@@ -102,7 +97,6 @@ public class ThelaHunGinjeetSpearItem extends Item {
         }
         PlayerEntity player = (PlayerEntity) livingEntity;
         int usedTicks = this.getUseDuration(stack) - timeLeft;
-        // 三叉戟式蓄力：必须蓄力至少0.5秒（10 ticks）才能投掷
         if (usedTicks < 10) {
             return;
         }
@@ -133,21 +127,17 @@ public class ThelaHunGinjeetSpearItem extends Item {
 
     @Override
     public int getEnchantmentValue() {
-        // 与钻石制装备相同
         return 10;
     }
 
     @Override
     public boolean canApplyAtEnchantingTable(ItemStack stack, Enchantment enchantment) {
-        // 剑类附魔池
         if (enchantment.category == EnchantmentType.WEAPON) {
             return true;
         }
-        // 额外允许激流和引雷
         if (enchantment == Enchantments.RIPTIDE || enchantment == Enchantments.CHANNELING) {
             return true;
         }
-        // 允许通用附魔（经验修补、消失诅咒等）
         if (enchantment.category == EnchantmentType.BREAKABLE) {
             return true;
         }

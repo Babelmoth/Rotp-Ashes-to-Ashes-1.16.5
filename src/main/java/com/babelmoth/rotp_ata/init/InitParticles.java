@@ -11,20 +11,16 @@ import net.minecraftforge.registries.ForgeRegistries;
 public class InitParticles {
     public static final DeferredRegister<ParticleType<?>> PARTICLES = DeferredRegister.create(
         ForgeRegistries.PARTICLE_TYPES, AddonMain.MOD_ID);
-    
-    // Custom ash particle - no gravity, moves in velocity direction
+
     public static final RegistryObject<BasicParticleType> FOSSIL_ASH = PARTICLES.register(
         "fossil_ash", () -> new BasicParticleType(false));
-            
-    // Gathering effect particle
+
     public static final RegistryObject<BasicParticleType> FOSSIL_ASH_GATHER = PARTICLES.register(
         "fossil_ash_gather", () -> new BasicParticleType(false));
-            
-    // Large smoke particle (kinetic detonation - Exfoliating mode)
+
     public static final RegistryObject<BasicParticleType> ASH_SMOKE_LARGE = PARTICLES.register(
         "ash_smoke_large", () -> new BasicParticleType(false));
 
-    // Stand resolve aura flame particle (tinted with stand color)
     public static final RegistryObject<BasicParticleType> STAND_RESOLVE_AURA = PARTICLES.register(
         "stand_resolve_aura", () -> new BasicParticleType(false));
 

@@ -34,8 +34,7 @@ public class AshesToAshesRemoveBarrier extends StandAction {
 
         BlockPos targetPos = target.getBlockPos();
         if (targetPos == null) return;
-        
-        // Check if target is our barrier
+
         TileEntity te = world.getBlockEntity(targetPos);
         if (te instanceof FrozenBarrierBlockEntity) {
             FrozenBarrierBlockEntity barrier = (FrozenBarrierBlockEntity) te;

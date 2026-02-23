@@ -25,12 +25,6 @@ import net.minecraft.world.server.ServerWorld;
 import java.util.List;
 import java.util.Random;
 
-/**
- * Thorn Burst: Target an entity with thorn stacks, detonate all thorns.
- * Launches spears outward based on thorn count (max 30), deals damage based on stacks,
- * spawns blood particles, and auto-recalls all spears back to the owner.
- * Resolve level 3 to unlock.
- */
 public class ThelaHunGinjeetThornBurst extends StandAction {
     private static final float BASE_DAMAGE = 8.0F;
     private static final float STAMINA_COST = 200.0F;
@@ -52,7 +46,7 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
         if (power.getStamina() < STAMINA_COST) {
             return ActionConditionResult.NEGATIVE;
         }
-        // Check if there are any entities with thorns/spears in range
+
         List<LivingEntity> targets = findBurstTargets(user);
         if (targets.isEmpty()) {
             return ActionConditionResult.NEGATIVE;
@@ -80,7 +74,6 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
             int totalStacks = Math.max(thornCount, spearCount);
             if (totalStacks <= 0) continue;
 
-            // Deal burst damage based on stacks (always deal damage)
             float damage = getScaledDamage(power) * (1.0F + totalStacks * 0.2F);
             DamageSource source = new DamageSource("stand.thorn_burst") {
                 @Override
@@ -90,7 +83,6 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
             };
             living.hurt(source, damage);
 
-            // Blood particles
             if (world instanceof ServerWorld) {
                 ServerWorld serverWorld = (ServerWorld) world;
                 Vector3d pos = living.position().add(0, living.getBbHeight() * 0.5, 0);
@@ -101,7 +93,7 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
             boolean shouldRecall = false;
 
             if (thornCount > 0) {
-                // Launch burst spears based on thorn count (max 30)
+
                 int burstCount = Math.min(thornCount, MAX_BURST_SPEARS);
                 Vector3d burstCenter = living.position().add(0, living.getBbHeight() * 0.5, 0);
                 double spawnOffset = Math.max(living.getBbWidth(), living.getBbHeight()) * 0.5 + 0.5;
@@ -120,14 +112,13 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
                     double spawnZ = burstCenter.z + dirZ * spawnOffset;
 
                     ThelaHunGinjeetSpearEntity burstSpear = new ThelaHunGinjeetSpearEntity(world, spawnX, spawnY, spawnZ);
-                    // No owner - burst spears are independent and cannot be recalled
+
                     burstSpear.setBurstMode(true);
                     burstSpear.pickup = net.minecraft.entity.projectile.AbstractArrowEntity.PickupStatus.DISALLOWED;
                     burstSpear.shootFromRotation(user, -pitchAngle, (float) angle, 0.0F, (float) speed, 5.0F);
                     world.addFreshEntity(burstSpear);
                 }
 
-                // Reduce thorn stacks by burst count; recall only if thorns fully consumed
                 final int spearsFired = burstCount;
                 int remaining = thornCount - spearsFired;
                 living.getCapability(SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
@@ -139,11 +130,10 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
                 });
                 shouldRecall = (remaining <= 0);
             } else {
-                // Thorns == 0, only stuck spears: recall without bursting
+
                 shouldRecall = true;
             }
 
-            // Recall spears only when thorns are fully consumed or there were no thorns
             if (shouldRecall) {
                 AxisAlignedBB targetBox = living.getBoundingBox().inflate(5.0);
                 for (ThelaHunGinjeetSpearEntity spear : world.getEntitiesOfClass(ThelaHunGinjeetSpearEntity.class, targetBox,
@@ -158,9 +148,6 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
         user.playSound(SoundEvents.TRIDENT_HIT, 1.5F, 0.8F);
     }
 
-    /**
-     * Find all living entities within SEARCH_RADIUS that have thorn stacks or stuck spears.
-     */
     private static List<LivingEntity> findBurstTargets(LivingEntity user) {
         AxisAlignedBB searchBox = user.getBoundingBox().inflate(SEARCH_RADIUS);
         List<LivingEntity> result = new java.util.ArrayList<>();

@@ -24,17 +24,17 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
 
     @Override
     public float getHeldWalkSpeed() {
-        return 0.5f; // Same as RotP in-action slowdown (e.g. melee barrage)
+        return 0.5f;
     }
-    
+
     @Override
     public int getHoldDurationMax(IStandPower standPower) {
-        return Integer.MAX_VALUE; // Hold as long as you can pay
+        return Integer.MAX_VALUE;
     }
-    
+
     @Override
     public ActionConditionResult checkSpecificConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-        // Can be used without stand. Only block if in remote control.
+
         IStandManifestation manifestation = power.getStandManifestation();
         if (manifestation instanceof StandEntity) {
             StandEntity stand = (StandEntity) manifestation;
@@ -48,59 +48,50 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
     @Override
     public void onHoldTick(World world, LivingEntity user, IStandPower power, int ticksHeld, ActionTarget target, boolean requirementsMet) {
         if (!world.isClientSide && requirementsMet) {
-            // Slowdown while holding is handled by RotP via getHeldWalkSpeed() (see InitStands)
-            
-            // Fire rate: 3 ticks during Resolve, 5 ticks normally
+
             int fireInterval = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 3 : 5;
             if (ticksHeld % fireInterval == 0) {
-                // Cost: 5 Momentum (Kinetic Energy from moths) + Stamina
+
                 int momentumCost = 5;
                 float staminaCost = 50.0f;
-                
-                // Check Stamina first
+
                 if (power.getStamina() >= staminaCost) {
-                    // Try to consume energy from surrounding moths (returns Hamon used)
+
                     int hamonUsed = consumeMothEnergy(user, momentumCost, power);
-                    if (hamonUsed >= 0) { // -1 means failure
-                        // Success -> Consume Stamina and Fire
+                    if (hamonUsed >= 0) {
+
                         power.consumeStamina(staminaCost);
-                        
-                        // Spawn Bullet Moth
+
                         FossilMothEntity bulletMoth = new FossilMothEntity(world, user);
-                        
-                        // If Hamon was consumed, give bullet moth Hamon energy so it uses Hamon damage
+
                         if (hamonUsed > 0) {
-                            bulletMoth.setHamonEnergy(1); // Just need > 0 to trigger Hamon damage
+                            bulletMoth.setHamonEnergy(1);
                         }
-                        
-                        // Random spawn position around user
+
                         double angle = world.random.nextDouble() * Math.PI * 2;
                         double dist = 1.0 + world.random.nextDouble() * 1.5;
                         double px = user.getX() + Math.cos(angle) * dist;
                         double pz = user.getZ() + Math.sin(angle) * dist;
                         double py = user.getEyeY() + (world.random.nextDouble() - 0.5) * 1.5;
-                        
+
                         bulletMoth.setPos(px, py, pz);
                         bulletMoth.yRot = user.yRot;
                         bulletMoth.xRot = user.xRot;
-                        bulletMoth.setIsBullet(true); // Flag as bullet
-                        
-                        // Fire immediately towards look direction with slight spread
+                        bulletMoth.setIsBullet(true);
+
                         net.minecraft.util.math.vector.Vector3d lookDir = user.getViewVector(1.0f);
-                        // Add slight spread
+
                         lookDir = lookDir.add(
-                            (world.random.nextDouble() - 0.5) * 0.1, 
-                            (world.random.nextDouble() - 0.5) * 0.1, 
+                            (world.random.nextDouble() - 0.5) * 0.1,
+                            (world.random.nextDouble() - 0.5) * 0.1,
                             (world.random.nextDouble() - 0.5) * 0.1).normalize();
-                        
-                        // Speed boost during Resolve
+
                         float speed = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 5.0f : 3.5f;
                         bulletMoth.piercingFire(lookDir, speed);
-                        
+
                         world.addFreshEntity(bulletMoth);
-                        
-                        // Sound
-                        world.playSound(null, px, py, pz, 
+
+                        world.playSound(null, px, py, pz,
                             SoundEvents.FIRECHARGE_USE, SoundCategory.PLAYERS, 0.5f, 1.5f + world.random.nextFloat() * 0.5f);
                     }
                 }
@@ -108,9 +99,6 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
         }
     }
 
-    /**
-     * Consume moth pool kinetic/hamon (prefer hamon). When stand is fully out use stand logic; when not, consume from player MothPool directly for consistent behavior.
-     */
     private int consumeMothEnergy(LivingEntity user, int amount, IStandPower power) {
         if (amount <= 0) return 0;
 
@@ -127,7 +115,6 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
             return hamonBefore - hamonAfter;
         }
 
-        // Stand not fully manifested: consume from player MothPool directly (same behavior as stand path)
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
             .map(pool -> {
                 int totalHamon = pool.getTotalHamonEnergy();

@@ -3,17 +3,13 @@ package com.babelmoth.rotp_ata.capability;
 import net.minecraft.nbt.CompoundNBT;
 import java.util.BitSet;
 
-/**
- * Manages moth pool data (energy, slots, deployment status).
- */
 public class MothPool implements IMothPool {
     private int[] kineticPool = new int[MAX_MOTHS];
     private int[] hamonPool = new int[MAX_MOTHS];
     private BitSet occupiedSlots = new BitSet(MAX_MOTHS);
     private BitSet deployedSlots = new BitSet(MAX_MOTHS);
     private int recoveryTimer = 0;
-    
-    // Configurable moth counts
+
     private int orbitMothCount = 20;
     private int shieldMothCount = 10;
     private int swarmAttackCount = 10;
@@ -49,7 +45,7 @@ public class MothPool implements IMothPool {
 
     @Override
     public void setTotalMoths(int count) {
-        // Intentionally no-op: total moth count is derived from occupiedSlots.
+
     }
 
     @Override
@@ -104,19 +100,17 @@ public class MothPool implements IMothPool {
         }
         return sum;
     }
-    
-    // --- Slot Management ---
-    
+
     @Override
     public int allocateSlot() {
-        // Default allocation strategy prefers empty, non-deployed slots, then any non-deployed slot, then a new slot.
+
         return allocateSlotWithPriority(true);
     }
 
     @Override
     public int allocateSlotWithPriority(boolean emptyFirst) {
         int bestIndex = -1;
-        
+
         if (emptyFirst) {
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
                 if (!deployedSlots.get(i) && kineticPool[i] == 0) {
@@ -125,7 +119,7 @@ public class MothPool implements IMothPool {
                 }
             }
         }
-        
+
         if (bestIndex == -1) {
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
                 if (!deployedSlots.get(i)) {
@@ -134,27 +128,27 @@ public class MothPool implements IMothPool {
                 }
             }
         }
-        
+
         if (bestIndex == -1) {
             bestIndex = occupiedSlots.nextClearBit(0);
             if (bestIndex < 0 || bestIndex >= MAX_MOTHS) return -1;
-            
+
             occupiedSlots.set(bestIndex);
             kineticPool[bestIndex] = 0;
             hamonPool[bestIndex] = 0;
         }
-        
+
         deployedSlots.set(bestIndex);
         return bestIndex;
     }
-    
+
     @Override
     public void recallMoth(int index) {
         if (index >= 0 && index < MAX_MOTHS) {
             deployedSlots.clear(index);
         }
     }
-    
+
     @Override
     public void killMoth(int index) {
         if (index >= 0 && index < MAX_MOTHS) {
@@ -164,7 +158,7 @@ public class MothPool implements IMothPool {
             hamonPool[index] = 0;
         }
     }
-    
+
     @Override
     public boolean isSlotActive(int index) {
         return index >= 0 && index < MAX_MOTHS && occupiedSlots.get(index);
@@ -181,16 +175,13 @@ public class MothPool implements IMothPool {
     public void clearAllDeployed() {
         deployedSlots.clear();
     }
-    
-    // -----------------------
 
     @Override
     public boolean consumeMoths(int amount) {
         if (occupiedSlots.cardinality() < amount) return false;
-        
+
         int consumed = 0;
-        
-        // Priority 1: Reserved & Empty (not deployed, zero kinetic)
+
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (!deployedSlots.get(i) && kineticPool[i] == 0) {
                 killMoth(i);
@@ -198,8 +189,7 @@ public class MothPool implements IMothPool {
             }
         }
         if (consumed >= amount) return true;
-        
-        // Priority 2: Reserved & Charged (not deployed, has kinetic)
+
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (!deployedSlots.get(i)) {
                 killMoth(i);
@@ -207,8 +197,7 @@ public class MothPool implements IMothPool {
             }
         }
         if (consumed >= amount) return true;
-        
-        // Priority 3: Active & Empty (deployed, zero kinetic)
+
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (deployedSlots.get(i) && kineticPool[i] == 0) {
                 killMoth(i);
@@ -216,15 +205,14 @@ public class MothPool implements IMothPool {
             }
         }
         if (consumed >= amount) return true;
-        
-        // Priority 4: Active & Charged (deployed, has kinetic)
+
         for (int i = occupiedSlots.nextSetBit(0); i >= 0 && consumed < amount; i = occupiedSlots.nextSetBit(i + 1)) {
             if (deployedSlots.get(i)) {
                 killMoth(i);
                 consumed++;
             }
         }
-        
+
         return true;
     }
 
@@ -235,7 +223,7 @@ public class MothPool implements IMothPool {
             int richestIndex = -1;
             int maxEnergy = 0;
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
-                // Skip deployed slots: kinetic on active moths is treated as owned by the moth and not part of reserve.
+
                 if (deployedSlots.get(i)) continue;
                 if (kineticPool[i] > maxEnergy) {
                     maxEnergy = kineticPool[i];
@@ -258,7 +246,7 @@ public class MothPool implements IMothPool {
             int richestIndex = -1;
             int maxEnergy = 0;
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
-                // Skip deployed slots and the explicitly excluded slot.
+
                 if (deployedSlots.get(i) || i == excludeSlot) continue;
                 if (kineticPool[i] > maxEnergy) {
                     maxEnergy = kineticPool[i];
@@ -279,23 +267,23 @@ public class MothPool implements IMothPool {
         while (totalConsumed < amount) {
             int richestIndex = -1;
             int maxEnergy = 0;
-            
+
             for (int i = occupiedSlots.nextSetBit(0); i >= 0; i = occupiedSlots.nextSetBit(i + 1)) {
                 if (hamonPool[i] > maxEnergy) {
                     maxEnergy = hamonPool[i];
                     richestIndex = i;
                 }
             }
-            
+
             if (richestIndex == -1) break;
-            
+
             int toTake = Math.min(amount - totalConsumed, maxEnergy);
             hamonPool[richestIndex] -= toTake;
             totalConsumed += toTake;
         }
         return totalConsumed;
     }
-    
+
     @Override
     public int getDeployedCount() {
         return deployedSlots.cardinality();
@@ -350,7 +338,7 @@ public class MothPool implements IMothPool {
     public void sync(net.minecraft.entity.player.ServerPlayerEntity player) {
         if (!player.level.isClientSide) {
             com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.sendToClient(
-                new com.babelmoth.rotp_ata.networking.MothPoolSyncPacket(this.serializeNBT()), 
+                new com.babelmoth.rotp_ata.networking.MothPoolSyncPacket(this.serializeNBT()),
                 player
             );
         }
@@ -385,7 +373,7 @@ public class MothPool implements IMothPool {
         } else {
             this.occupiedSlots = new BitSet(MAX_MOTHS);
         }
-        
+
         byte[] depBytes = nbt.getByteArray("DeployedSlots");
         if (depBytes != null && depBytes.length > 0) {
             this.deployedSlots = BitSet.valueOf(depBytes);
@@ -401,7 +389,7 @@ public class MothPool implements IMothPool {
         if (nbt.contains("AutoChargeShield")) this.autoChargeShield = nbt.getBoolean("AutoChargeShield");
         if (nbt.contains("RemoteFollow")) this.remoteFollow = nbt.getBoolean("RemoteFollow");
         if (nbt.contains("RemoteFollowRatio")) this.remoteFollowRatio = nbt.getInt("RemoteFollowRatio");
-        
+
         if (this.kineticPool.length != MAX_MOTHS) this.kineticPool = new int[MAX_MOTHS];
         if (this.hamonPool.length != MAX_MOTHS) this.hamonPool = new int[MAX_MOTHS];
     }

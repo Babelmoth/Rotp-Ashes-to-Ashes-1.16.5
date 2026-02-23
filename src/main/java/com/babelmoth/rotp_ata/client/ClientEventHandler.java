@@ -29,9 +29,6 @@ public class ClientEventHandler {
 
     private static final Random RANDOM = new Random();
 
-    /**
-     * Set player arm pose to BLOCK when holding spear block action.
-     */
     @SuppressWarnings("rawtypes")
     @SubscribeEvent
     public static void onRenderLiving(RenderLivingEvent.Pre event) {
@@ -48,10 +45,6 @@ public class ClientEventHandler {
         });
     }
 
-    /**
-     * 觉悟状态火焰光环粒子：当玩家拥有本模组替身且处于觉悟（RESOLVE）状态时，
-     * 在玩家周围生成带替身颜色的火焰粒子。
-     */
     @SubscribeEvent
     public static void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
@@ -60,7 +53,6 @@ public class ClientEventHandler {
 
         ClientWorld world = mc.level;
 
-        // 对所有在渲染范围内的玩家生成粒子
         for (PlayerEntity player : world.players()) {
             if (!player.isAlive()) continue;
             if (!player.hasEffect(ModStatusEffects.RESOLVE.get())) continue;
@@ -70,7 +62,6 @@ public class ClientEventHandler {
                 StandType<?> standType = power.getType();
                 if (standType == null || standType.getRegistryName() == null) return;
 
-                // 仅限本模组的替身
                 if (!AddonMain.MOD_ID.equals(standType.getRegistryName().getNamespace())) return;
 
                 IAnimatedSprite sprites = StandResolveAuraParticle.getSavedSprites();
@@ -80,8 +71,6 @@ public class ClientEventHandler {
                 float width = player.getBbWidth();
                 float height = player.getBbHeight();
 
-                // 每 tick 生成 7 个粒子（与RotP满级满充能波纹呼吸完全一致：
-                // particlesPerTick = energy/maxStability * dmgMultiplier = 1.0 * 7.0 = 7）
                 int count = 7;
                 for (int i = 0; i < count; i++) {
                     double px = player.getX() + (RANDOM.nextDouble() - 0.5) * (width + 0.5);
@@ -93,7 +82,6 @@ public class ClientEventHandler {
                     mc.particleEngine.add(particle);
                 }
 
-                // 第一人称手臂粒子（与RotP HamonData.tickChargeParticles一致：particlesPerTick / 5）
                 if (player == mc.cameraEntity) {
                     float r = ((color >> 16) & 0xFF) / 255.0F;
                     float g = ((color >> 8) & 0xFF) / 255.0F;

@@ -40,13 +40,10 @@ public class SpearStuckMobLayer<T extends LivingEntity, M extends EntityModel<T>
         for (int i = 0; i < count; i++) {
             matrixStack.pushPose();
 
-            // 随机水平角度（0~360度）+ 小幅偏移让刺入方向不完全对准中心
             float yawDeg = random.nextFloat() * 360.0F + (random.nextFloat() - 0.5F) * 30.0F;
-            // pitch 在 -45° 到 45° 之间（有明显歪斜但仍像从外部刺入）
+
             float pitchDeg = (random.nextFloat() - 0.5F) * 90.0F;
 
-            // 位置：在实体身体表面（Y轴已翻转：0=头顶，height=脚底）
-            // 集中在上半身区域（0%~60% 高度，即头顶到胸部）
             float offY = random.nextFloat() * entityHeight * 0.6F;
             float yawRad = (float) Math.toRadians(yawDeg);
             float offX = MathHelper.sin(yawRad) * entityWidth * 0.5F;

@@ -19,28 +19,22 @@ import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
-/**
- * Kinetic bar HUD for Ashes to Ashes. Uses the same visibility logic as RotP's energy bars
- * (only when stand GUI / hotbars are shown) and the same resolve-bar style (frame + fill) with amber color.
- * Renders with LOW priority so we run after RotP's overlay and use the same frame's visibility state.
- */
 @Mod.EventBusSubscriber(modid = AddonMain.MOD_ID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public class AshesToAshesHUD {
     private static final Minecraft mc = Minecraft.getInstance();
 
-    /** Amber color for kinetic bar (same tone as resolve / stand UI). */
     private static final int AMBER_COLOR = 0xE7801A;
-    /** Bar length in pixels (middle segment only; +2 for caps = full width). */
+
     private static final int BAR_LENGTH = 80;
     private static final int BAR_HEIGHT = 8;
-    /** Resolve bar fill texY in overlay. */
+
     private static final int TEX_Y_RESOLVE = 160;
-    /** Border strip at y=128; RotP uses 202x8 (left 1px + middle 200 + right 1px). */
+
     private static final int BORDER_TEX_Y = 128;
     private static final int BORDER_LEFT_TEX_X = 0;
     private static final int BORDER_MIDDLE_TEX_X = 1;
     private static final int BORDER_RIGHT_TEX_X = 201;
-    /** Scale texture: (1, 145), size (length, 6). */
+
     private static final int SCALE_TEX_X = 1;
     private static final int SCALE_TEX_Y = 145;
     private static final int MAX_KINETIC_DISPLAY = Math.max(1, IMothPool.MAX_MOTHS * AshesToAshesConstants.MOTH_MAX_KINETIC);
@@ -51,7 +45,7 @@ public class AshesToAshesHUD {
         if (ActionsOverlayGui.noHudRender(mc)) return;
         ActionsOverlayGui overlay = ActionsOverlayGui.getInstance();
         if (overlay == null || !overlay.areHotbarsEnabled()) return;
-        // Only show when overlay is in stand mode (same as resolve/stamina bars context)
+
         if (overlay.getCurrentMode() == null || overlay.getCurrentMode() != IPower.PowerClassification.STAND) return;
 
         PlayerEntity player = mc.player;
@@ -80,7 +74,6 @@ public class AshesToAshesHUD {
                 RenderSystem.defaultBlendFunc();
                 RenderSystem.color4f(1.0F, 1.0F, 1.0F, 1.0F);
 
-                // RotP-style 3-part border so left/right caps are visible (texture 202px: 1 + 200 + 1)
                 AbstractGui.blit(stack, barX, barY, BORDER_LEFT_TEX_X, BORDER_TEX_Y, 1, BAR_HEIGHT, 256, 256);
                 AbstractGui.blit(stack, barX + 1, barY, BORDER_MIDDLE_TEX_X, BORDER_TEX_Y, BAR_LENGTH, BAR_HEIGHT, 256, 256);
                 AbstractGui.blit(stack, barX + 1 + BAR_LENGTH, barY, BORDER_RIGHT_TEX_X, BORDER_TEX_Y, 1, BAR_HEIGHT, 256, 256);

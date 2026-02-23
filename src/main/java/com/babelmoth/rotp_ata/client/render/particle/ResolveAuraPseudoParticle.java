@@ -8,10 +8,6 @@ import net.minecraft.util.HandSide;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-/**
- * 替身觉悟第一人称手臂粒子。
- * 继承RotP的HamonAuraPseudoParticle，仅覆盖渲染类型和颜色。
- */
 @OnlyIn(Dist.CLIENT)
 public class ResolveAuraPseudoParticle extends FirstPersonHamonAura.HamonAuraPseudoParticle {
 
@@ -20,7 +16,6 @@ public class ResolveAuraPseudoParticle extends FirstPersonHamonAura.HamonAuraPse
                                       float r, float g, float b) {
         super(x, y, z, sprites, handSide);
 
-        // 颜色归一化：最大通道=1.0，保持色相比例（与StandResolveAuraParticle一致）
         float maxChannel = Math.max(r, Math.max(g, b));
         if (maxChannel > 0) {
             this.rCol = r / maxChannel;

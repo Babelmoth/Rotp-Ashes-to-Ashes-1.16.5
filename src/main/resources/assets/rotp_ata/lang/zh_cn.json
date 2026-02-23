@@ -16,7 +16,7 @@
   "action.rotp_ata.ashes_to_ashes_kinetic_detonation": "动能爆破",
   "action.rotp_ata.ashes_to_ashes_exfoliating_detonation": "剥落爆破",
   "action.rotp_ata.ashes_to_ashes_kinetic_sensing": "动能感应",
-  "action.rotp_ata.ashes_to_ashes_frozen_barrier": "冻结屏障",
+  "action.rotp_ata.ashes_to_ashes_frozen_barrier": "静滞屏障",
   "action.rotp_ata.ashes_to_ashes_remove_barrier": "移除屏障",
   "action.rotp_ata.ashes_to_ashes_swarm_config": "蛾群配置",
 
@@ -48,7 +48,7 @@
   "action.rotp_ata.thela_hun_ginjeet_thorn_burst": "棘刺爆裂",
 
   "item.rotp_ata.thela_hun_ginjeet_spear": "赛拉·杭·金吉",
-  "block.rotp_ata.frozen_barrier": "冻结屏障",
+  "block.rotp_ata.frozen_barrier": "静滞屏障",
   "jojo.ata.message.requires_momentum": "您的动能储备不足以支持您这么做",
   "jojo.ata.message.requires_stand_summoned": "需要召唤替身",
   "jojo.ata.message.action_condition.ground_only": "需要对准方块使用",
@@ -58,5 +58,18 @@
   "jojo.ata.message.kinetic_insufficient": "动能不足，无法放置",
 
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "成长性S",
-  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "通过为自己的替身附魔来超常发挥其力量"
+  "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "通过为自己的替身附魔来超常发挥其力量",
+
+  "death.attack.stand.spear": "%1$s被替身长矛贯穿了",
+  "death.attack.stand.spear.player": "%1$s被%2$s的替身长矛贯穿了",
+  "death.attack.stand.spear_thrust": "%1$s被迅捷突刺洞穿了",
+  "death.attack.stand.spear_thrust.player": "%1$s被%2$s的迅捷突刺洞穿了",
+  "death.attack.stand.spear_riptide": "%1$s被激流突刺卷走了",
+  "death.attack.stand.spear_riptide.player": "%1$s被%2$s的激流突刺卷走了",
+  "death.attack.stand.spear_sweep": "%1$s被长矛挥打击倒了",
+  "death.attack.stand.spear_sweep.player": "%1$s被%2$s的长矛挥打击倒了",
+  "death.attack.stand.spear_thorn": "%1$s被棘刺刺穿了",
+  "death.attack.stand.spear_thorn.player": "%1$s被%2$s的棘刺刺穿了",
+  "death.attack.stand.thorn_burst": "%1$s被棘刺爆裂撕碎了",
+  "death.attack.stand.thorn_burst.player": "%1$s被%2$s的棘刺爆裂撕碎了"
 }
