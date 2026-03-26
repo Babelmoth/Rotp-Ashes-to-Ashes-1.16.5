@@ -56,7 +56,7 @@ public class AshesToAshesKineticPiercing extends StandAction {
         if (moths.isEmpty() && chargingMoths.isEmpty()) {
 
             boolean canSpawn = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY)
-                .map(pool -> pool.getTotalMoths() < com.babelmoth.rotp_ata.capability.IMothPool.MAX_MOTHS)
+                .map(pool -> pool.getAvailableSlotCount() > 0)
                 .orElse(false);
             if (!canSpawn) {
                 return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.no_moths_available"));

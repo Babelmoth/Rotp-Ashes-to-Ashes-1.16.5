@@ -23,6 +23,7 @@ public class AddonMain {
     public AddonMain() {
         GeckoLib.initialize();
         com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler.register();
+        com.babelmoth.rotp_ata.networking.DharmaChakraPacketManager.init();
 
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -92,6 +93,18 @@ public class AddonMain {
                 }
             },
             com.babelmoth.rotp_ata.capability.MothPool::new
+        );
+
+        net.minecraftforge.common.capabilities.CapabilityManager.INSTANCE.register(
+            com.babelmoth.rotp_ata.capability.IAdaptationCap.class,
+            new com.babelmoth.rotp_ata.capability.AdaptationCapStorage(),
+            com.babelmoth.rotp_ata.capability.AdaptationCap::new
+        );
+
+        net.minecraftforge.common.capabilities.CapabilityManager.INSTANCE.register(
+            com.babelmoth.rotp_ata.capability.IDharmaWheelHostCap.class,
+            new com.babelmoth.rotp_ata.capability.DharmaWheelHostCapStorage(),
+            com.babelmoth.rotp_ata.capability.DharmaWheelHostCap::new
         );
 
     }

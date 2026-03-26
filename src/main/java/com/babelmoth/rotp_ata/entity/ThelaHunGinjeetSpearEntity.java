@@ -6,7 +6,18 @@ import com.babelmoth.rotp_ata.init.InitEntities;
 import com.babelmoth.rotp_ata.util.SpearEnchantHelper;
 import com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler;
 import com.babelmoth.rotp_ata.networking.SpearStuckSyncPacket;
+import com.github.standobyte.jojo.action.non_stand.HamonOrganismInfusion;
+import com.github.standobyte.jojo.entity.damaging.projectile.BlockShardEntity;
+import com.github.standobyte.jojo.init.ModEntityTypes;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.material.Material;
+import net.minecraft.particles.BlockParticleData;
+import net.minecraft.potion.EffectInstance;
+import net.minecraft.potion.Effects;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -20,8 +31,12 @@ import net.minecraft.network.PacketBuffer;
 import net.minecraft.network.datasync.DataParameter;
 import net.minecraft.network.datasync.DataSerializers;
 import net.minecraft.network.datasync.EntityDataManager;
+import net.minecraft.particles.ParticleTypes;
 import net.minecraft.util.DamageSource;
+import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.EntityRayTraceResult;
 import net.minecraft.util.math.vector.Vector3d;
 import net.minecraft.world.World;
@@ -30,11 +45,15 @@ import net.minecraftforge.fml.common.registry.IEntityAdditionalSpawnData;
 import net.minecraftforge.fml.network.NetworkHooks;
 import net.minecraftforge.fml.network.PacketDistributor;
 
+import java.util.Comparator;
+import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements IEntityAdditionalSpawnData {
     private static final DataParameter<Boolean> DATA_RECALLED = EntityDataManager.defineId(ThelaHunGinjeetSpearEntity.class, DataSerializers.BOOLEAN);
     private static final DataParameter<Integer> DATA_OWNER_ID = EntityDataManager.defineId(ThelaHunGinjeetSpearEntity.class, DataSerializers.INT);
+    private static final DataParameter<Boolean> DATA_PENDING_LIVING_BLOCK = EntityDataManager.defineId(ThelaHunGinjeetSpearEntity.class, DataSerializers.BOOLEAN);
 
     private ItemStack spearItem = ItemStack.EMPTY;
     private int returningTicks = 0;
@@ -46,6 +65,13 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
     private int recallIgnoreEntityId = -1;
 
     private int recallGraceTicks = 0;
+    private static final double BURST_MAX_TRAVEL_DISTANCE = 28.0;
+    private static final int BURST_MAX_LIFETIME_TICKS = 80;
+    private Vector3d burstOrigin = null;
+    private int burstTicks = 0;
+    
+    private BlockPos livingBlockHitPos = null;
+    private int livingBlockExplosionTicks = 0;
 
     public ThelaHunGinjeetSpearEntity(EntityType<? extends ThelaHunGinjeetSpearEntity> type, World world) {
         super(type, world);
@@ -68,6 +94,7 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
         super.defineSynchedData();
         this.entityData.define(DATA_RECALLED, false);
         this.entityData.define(DATA_OWNER_ID, -1);
+        this.entityData.define(DATA_PENDING_LIVING_BLOCK, false);
     }
 
     public ItemStack getSpearItem() {
@@ -83,6 +110,8 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
     }
 
     public void setRecalled(boolean recalled) {
+        if (burstMode) return;
+        
         this.entityData.set(DATA_RECALLED, recalled);
         if (recalled) {
             this.returningTicks = 0;
@@ -92,8 +121,12 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             this.setInvisible(false);
             this.pickup = PickupStatus.DISALLOWED;
 
+            this.livingBlockHitPos = null;
+            this.livingBlockExplosionTicks = 0;
+            this.entityData.set(DATA_PENDING_LIVING_BLOCK, false);
+
             this.recallIgnoreEntityId = this.stuckTargetId;
-            this.recallGraceTicks = 30;
+            this.recallGraceTicks = 0;
 
             if (!level.isClientSide && stuckTargetId >= 0) {
                 Entity target = level.getEntity(stuckTargetId);
@@ -126,14 +159,72 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
 
     public void setBurstMode(boolean burst) {
         this.burstMode = burst;
+        if (burst) {
+            this.burstOrigin = this.position();
+            this.burstTicks = 0;
+        }
     }
 
     public boolean isBurstMode() {
         return this.burstMode;
     }
 
+    public boolean hasPendingLivingBlockExplosion() {
+        if (level.isClientSide) {
+            return !burstMode && this.entityData.get(DATA_PENDING_LIVING_BLOCK);
+        }
+        return !burstMode && livingBlockHitPos != null;
+    }
+
+    public boolean isOwnedBy(Entity entity) {
+        if (entity == null) return false;
+        if (level.isClientSide) {
+            int ownerId = this.entityData.get(DATA_OWNER_ID);
+            return ownerId >= 0 && ownerId == entity.getId();
+        }
+        Entity owner = getOwner();
+        return entity.equals(owner);
+    }
+
+    public boolean triggerLivingBlockExplosion() {
+        if (level.isClientSide || burstMode || livingBlockHitPos == null) {
+            return false;
+        }
+        explodeFromLivingBlock();
+        livingBlockHitPos = null;
+        livingBlockExplosionTicks = 0;
+        this.entityData.set(DATA_PENDING_LIVING_BLOCK, false);
+        return true;
+    }
+
     @Override
     public void tick() {
+        if (burstMode) {
+            if (burstOrigin == null) {
+                burstOrigin = this.position();
+            }
+            burstTicks++;
+            if (!level.isClientSide) {
+                double maxDistSq = BURST_MAX_TRAVEL_DISTANCE * BURST_MAX_TRAVEL_DISTANCE;
+                if (this.position().distanceToSqr(burstOrigin) >= maxDistSq || burstTicks >= BURST_MAX_LIFETIME_TICKS) {
+                    remove();
+                    return;
+                }
+            }
+        }
+
+        if (livingBlockHitPos != null && !level.isClientSide && !burstMode) {
+            livingBlockExplosionTicks--;
+            if (livingBlockExplosionTicks <= 0) {
+                livingBlockHitPos = null;
+                this.entityData.set(DATA_PENDING_LIVING_BLOCK, false);
+            }
+            if (!isRecalled()) {
+                this.baseTick();
+                return;
+            }
+        }
+        
         boolean recalled = isRecalled();
 
         if (recalled) {
@@ -298,9 +389,50 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
 
         if (burstMode) {
             Entity hitEntity = result.getEntity();
-            if (hitEntity != null && !level.isClientSide) {
-                float damage = 8.0F;
-                hitEntity.hurt(createSpearDamageSource(null), damage);
+            if (hitEntity == null) return;
+            Entity owner = getOwner();
+            
+            if (isOwnerOrOwnersStand(hitEntity, owner)) return;
+            
+            LivingEntity thornTarget = resolveTrackingTarget(hitEntity);
+            LivingEntity stickTarget = hitEntity instanceof LivingEntity ? (LivingEntity) hitEntity : thornTarget;
+            
+            float damage = 8.0F;
+            if (hitEntity instanceof LivingEntity) {
+                damage += SpearEnchantHelper.getTotalBonusDamage(spearItem, (LivingEntity) hitEntity);
+                SpearEnchantHelper.applyFireAspect(spearItem, (LivingEntity) hitEntity);
+            }
+            
+            float healthBefore = hitEntity instanceof LivingEntity ? ((LivingEntity) hitEntity).getHealth() : 0;
+            hitEntity.hurt(createSpearDamageSource(owner), damage);
+            float actualDmg = hitEntity instanceof LivingEntity 
+                    ? Math.max(0, healthBefore - ((LivingEntity) hitEntity).getHealth()) : damage;
+            
+            boolean shouldStick = actualDmg >= damage * 0.2F;
+            if (shouldStick && !level.isClientSide && stickTarget != null) {
+                setNoGravity(true);
+                noPhysics = false;
+                
+                incrementStuckCount(stickTarget);
+                this.stuckTargetUUID = stickTarget.getUUID();
+                this.stuckTargetId = stickTarget.getId();
+                
+                this.setInvisible(true);
+                setDeltaMovement(Vector3d.ZERO);
+                this.setPos(hitEntity.getX(), hitEntity.getY() + hitEntity.getBbHeight() * 0.5, hitEntity.getZ());
+                this.inGround = false;
+                this.pickup = PickupStatus.DISALLOWED;
+                
+                if (thornTarget != null) {
+                    final float finalDmg = damage;
+                    thornTarget.getCapability(com.babelmoth.rotp_ata.capability.SpearThornProvider.SPEAR_THORN_CAPABILITY).ifPresent(cap -> {
+                        cap.setHasSpear(true);
+                        cap.setDamageDealt(0);
+                        cap.setDetachThreshold(cap.getThornCount() + finalDmg);
+                        syncThornData(thornTarget, cap);
+                    });
+                }
+            } else if (!level.isClientSide) {
                 remove();
             }
             return;
@@ -432,8 +564,21 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             }
             return;
         }
-
+        
         super.onHitBlock(result);
+        
+        if (!level.isClientSide) {
+            BlockPos blockPos = result.getBlockPos();
+            BlockState blockState = level.getBlockState(blockPos);
+            
+            if (HamonOrganismInfusion.isBlockLiving(blockState)) {
+                this.livingBlockHitPos = blockPos;
+                this.livingBlockExplosionTicks = 200;
+                this.entityData.set(DATA_PENDING_LIVING_BLOCK, true);
+                
+                level.playSound(null, blockPos, SoundEvents.WOOD_BREAK, SoundCategory.BLOCKS, 1.0F, 0.8F);
+            }
+        }
     }
 
     private void incrementStuckCount(LivingEntity target) {
@@ -467,6 +612,143 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
                             cap.getDetachThreshold(), cap.hasSpear()));
         }
     }
+    
+    private void explodeFromLivingBlock() {
+        if (livingBlockHitPos == null || level.isClientSide) return;
+        
+        ServerWorld serverWorld = (ServerWorld) level;
+        Vector3d explosionPos = Vector3d.atCenterOf(livingBlockHitPos);
+        BlockState blockState = level.getBlockState(livingBlockHitPos);
+        Block block = blockState.getBlock();
+        
+        serverWorld.sendParticles(ParticleTypes.EXPLOSION, 
+                explosionPos.x, explosionPos.y, explosionPos.z, 
+                3, 0.5, 0.5, 0.5, 0.0);
+        
+        level.playSound(null, livingBlockHitPos, SoundEvents.GENERIC_EXPLODE, SoundCategory.BLOCKS, 1.0F, 1.0F);
+        
+        Entity owner = getOwner();
+        List<LivingEntity> nearbyEntities = level.getEntitiesOfClass(LivingEntity.class, 
+                new AxisAlignedBB(livingBlockHitPos).inflate(8.0), 
+                entity -> entity.isAlive() && entity != owner && !isOwnerOrOwnersStand(entity, owner))
+                .stream()
+                .sorted(Comparator.comparingDouble(e -> e.distanceToSqr(explosionPos)))
+                .collect(Collectors.toList());
+        
+        int spearsToShoot = 5;
+        boolean isLog = BlockTags.LOGS.contains(block);
+        boolean isUnstrippedLog = isLog && getStrippedLog(block) != null;
+        boolean isStrippedLog = isLog && getStrippedLog(block) == null;
+        boolean isBamboo = block == Blocks.BAMBOO || block == Blocks.BAMBOO_SAPLING;
+        
+        if (isLog || isBamboo) {
+            spearsToShoot = 7;
+            
+            for (int i = 0; i < 5 + level.random.nextInt(6); i++) {
+                double angle = level.random.nextDouble() * Math.PI * 2.0;
+                double pitch = (level.random.nextDouble() - 0.25) * 0.8;
+                Vector3d shardDir = new Vector3d(
+                        Math.cos(angle) * Math.cos(pitch),
+                        Math.sin(pitch),
+                        Math.sin(angle) * Math.cos(pitch)
+                ).normalize();
+                double launchSpeed = 0.45 + level.random.nextDouble() * 0.35;
+                
+                BlockShardEntity shard = new BlockShardEntity(owner instanceof LivingEntity ? (LivingEntity) owner : null, 
+                        level, blockState, livingBlockHitPos);
+                Vector3d spawnPos = explosionPos.add(shardDir.scale(0.65));
+                shard.setPos(spawnPos.x, spawnPos.y, spawnPos.z);
+                shard.setDeltaMovement(shardDir.scale(launchSpeed));
+                shard.noPhysics = true;
+                level.addFreshEntity(shard);
+            }
+        }
+        
+        if (block == Blocks.GRASS_BLOCK) {
+            for (int i = 0; i < 20; i++) {
+                serverWorld.sendParticles(new BlockParticleData(ParticleTypes.BLOCK, Blocks.GRASS_BLOCK.defaultBlockState()),
+                        explosionPos.x, explosionPos.y, explosionPos.z,
+                        1, 0.8, 0.5, 0.8, 0.2);
+                serverWorld.sendParticles(new BlockParticleData(ParticleTypes.BLOCK, Blocks.DIRT.defaultBlockState()),
+                        explosionPos.x, explosionPos.y, explosionPos.z,
+                        1, 0.8, 0.5, 0.8, 0.2);
+            }
+            
+            for (LivingEntity entity : nearbyEntities) {
+                if (entity.distanceToSqr(explosionPos) <= 16.0) {
+                    entity.addEffect(new EffectInstance(Effects.BLINDNESS, 60, 0));
+                }
+            }
+        }
+        
+        boolean isCactus = block == Blocks.CACTUS;
+        boolean isMelon = block == Blocks.MELON;
+        boolean isPumpkin = block == Blocks.PUMPKIN || block == Blocks.CARVED_PUMPKIN;
+        
+        if (isCactus || isMelon || isPumpkin) {
+            float pierceDamage = isCactus ? 4.0F : 2.0F;
+            for (LivingEntity entity : nearbyEntities) {
+                if (entity.distanceToSqr(explosionPos) <= 25.0) {
+                    entity.hurt(DamageSource.CACTUS, pierceDamage);
+                }
+            }
+        }
+        
+        for (int i = 0; i < spearsToShoot; i++) {
+            double angle = (Math.PI * 2.0 / spearsToShoot) * i + level.random.nextDouble() * 0.5;
+            double pitch = (level.random.nextDouble() - 0.5) * 0.5;
+            Vector3d direction = new Vector3d(
+                Math.cos(angle) * Math.cos(pitch),
+                Math.sin(pitch),
+                Math.sin(angle) * Math.cos(pitch)
+            ).normalize();
+            
+            ThelaHunGinjeetSpearEntity burstSpear = new ThelaHunGinjeetSpearEntity(level, explosionPos.x, explosionPos.y, explosionPos.z);
+            burstSpear.setOwner(owner);
+            burstSpear.setBurstMode(true);
+            burstSpear.pickup = PickupStatus.DISALLOWED;
+            burstSpear.noPhysics = true;
+            burstSpear.shoot(direction.x, direction.y, direction.z, (float)(1.5 + level.random.nextDouble()), 5.0F);
+            level.addFreshEntity(burstSpear);
+        }
+        
+        if (block == Blocks.GRASS_BLOCK) {
+            level.setBlock(livingBlockHitPos, Blocks.DIRT.defaultBlockState(), 3);
+        } else if (isUnstrippedLog) {
+            Block strippedLog = getStrippedLog(block);
+            if (strippedLog != null) {
+                level.setBlock(livingBlockHitPos, strippedLog.defaultBlockState(), 3);
+            }
+        } else if (isBamboo || isStrippedLog || block == Blocks.LILY_PAD || blockState.getMaterial() == Material.LEAVES) {
+            level.destroyBlock(livingBlockHitPos, false);
+        }
+        
+        if (!burstMode) {
+            setRecalled(true);
+        } else {
+            remove();
+        }
+    }
+    
+    private Block getStrippedLog(Block log) {
+        if (log == Blocks.OAK_LOG) return Blocks.STRIPPED_OAK_LOG;
+        if (log == Blocks.SPRUCE_LOG) return Blocks.STRIPPED_SPRUCE_LOG;
+        if (log == Blocks.BIRCH_LOG) return Blocks.STRIPPED_BIRCH_LOG;
+        if (log == Blocks.JUNGLE_LOG) return Blocks.STRIPPED_JUNGLE_LOG;
+        if (log == Blocks.ACACIA_LOG) return Blocks.STRIPPED_ACACIA_LOG;
+        if (log == Blocks.DARK_OAK_LOG) return Blocks.STRIPPED_DARK_OAK_LOG;
+        if (log == Blocks.CRIMSON_STEM) return Blocks.STRIPPED_CRIMSON_STEM;
+        if (log == Blocks.WARPED_STEM) return Blocks.STRIPPED_WARPED_STEM;
+        if (log == Blocks.OAK_WOOD) return Blocks.STRIPPED_OAK_WOOD;
+        if (log == Blocks.SPRUCE_WOOD) return Blocks.STRIPPED_SPRUCE_WOOD;
+        if (log == Blocks.BIRCH_WOOD) return Blocks.STRIPPED_BIRCH_WOOD;
+        if (log == Blocks.JUNGLE_WOOD) return Blocks.STRIPPED_JUNGLE_WOOD;
+        if (log == Blocks.ACACIA_WOOD) return Blocks.STRIPPED_ACACIA_WOOD;
+        if (log == Blocks.DARK_OAK_WOOD) return Blocks.STRIPPED_DARK_OAK_WOOD;
+        if (log == Blocks.CRIMSON_HYPHAE) return Blocks.STRIPPED_CRIMSON_HYPHAE;
+        if (log == Blocks.WARPED_HYPHAE) return Blocks.STRIPPED_WARPED_HYPHAE;
+        return null;
+    }
 
     private LivingEntity resolveTrackingTarget(Entity hitEntity) {
         if (hitEntity instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
@@ -491,11 +773,15 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
         if (owner instanceof LivingEntity) {
             return com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((LivingEntity) owner)
                     .map(power -> {
+                        float dmg = 8.0F;
                         com.github.standobyte.jojo.power.impl.stand.IStandManifestation m = power.getStandManifestation();
                         if (m instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
-                            return (float) ((com.github.standobyte.jojo.entity.stand.StandEntity) m).getAttackDamage();
+                            dmg = (float) ((com.github.standobyte.jojo.entity.stand.StandEntity) m).getAttackDamage();
                         }
-                        return 8.0F;
+                        if (power.getResolveLevel() > 0) {
+                            dmg += 2.0F;
+                        }
+                        return dmg;
                     }).orElse(8.0F);
         }
         return 8.0F;
@@ -533,23 +819,20 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
         super.doPostHurtEffects(target);
     }
 
+    private static java.util.function.IntPredicate localPlayerOwnerCheck;
+    public static void setLocalPlayerOwnerCheck(java.util.function.IntPredicate check) { localPlayerOwnerCheck = check; }
+
     @Override
     public boolean isGlowing() {
 
         if (!burstMode) {
-            if (level.isClientSide) {
-                return isLocalPlayerOwner();
+            if (level.isClientSide && localPlayerOwnerCheck != null) {
+                int ownerId = this.entityData.get(DATA_OWNER_ID);
+                return ownerId >= 0 && localPlayerOwnerCheck.test(ownerId);
             }
             return true;
         }
         return super.isGlowing();
-    }
-
-    private boolean isLocalPlayerOwner() {
-        net.minecraft.entity.player.PlayerEntity localPlayer = net.minecraft.client.Minecraft.getInstance().player;
-        if (localPlayer == null) return false;
-        int ownerId = this.entityData.get(DATA_OWNER_ID);
-        return ownerId >= 0 && ownerId == localPlayer.getId();
     }
 
     @Override
@@ -606,6 +889,13 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
             nbt.put("SpearItem", spearItem.save(new CompoundNBT()));
         }
         nbt.putBoolean("Recalled", isRecalled());
+        nbt.putBoolean("BurstMode", burstMode);
+        nbt.putInt("BurstTicks", burstTicks);
+        if (burstOrigin != null) {
+            nbt.putDouble("BurstOriginX", burstOrigin.x);
+            nbt.putDouble("BurstOriginY", burstOrigin.y);
+            nbt.putDouble("BurstOriginZ", burstOrigin.z);
+        }
         if (stuckTargetUUID != null) {
             nbt.putUUID("StuckTargetUUID", stuckTargetUUID);
         }
@@ -616,6 +906,11 @@ public class ThelaHunGinjeetSpearEntity extends AbstractArrowEntity implements I
         super.readAdditionalSaveData(nbt);
         if (nbt.contains("SpearItem")) {
             spearItem = ItemStack.of(nbt.getCompound("SpearItem"));
+        }
+        burstMode = nbt.getBoolean("BurstMode");
+        burstTicks = nbt.getInt("BurstTicks");
+        if (nbt.contains("BurstOriginX") && nbt.contains("BurstOriginY") && nbt.contains("BurstOriginZ")) {
+            burstOrigin = new Vector3d(nbt.getDouble("BurstOriginX"), nbt.getDouble("BurstOriginY"), nbt.getDouble("BurstOriginZ"));
         }
         if (nbt.getBoolean("Recalled")) {
             setRecalled(true);

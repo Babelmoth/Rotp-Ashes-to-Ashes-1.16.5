@@ -6,24 +6,18 @@ import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.projectile.ProjectileHelper;
-import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.EntityRayTraceResult;
-import net.minecraft.util.math.vector.Vector3d;
-import net.minecraft.util.text.StringTextComponent;
+import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.World;
+import com.github.standobyte.jojo.util.mod.JojoModUtil;
 import java.util.List;
-import java.util.ArrayList;
 
 public class AshesToAshesSwarmGuardian extends StandAction {
-
-    private static final int GUARDIAN_MOTH_COUNT = 10;
 
     public AshesToAshesSwarmGuardian(AbstractBuilder<?> builder) {
         super(builder);
@@ -48,67 +42,45 @@ public class AshesToAshesSwarmGuardian extends StandAction {
             }
 
             Entity viewCenter = MothQueryUtil.getViewpointCenter(user);
-            Vector3d eyePos = viewCenter instanceof LivingEntity
-                    ? ((LivingEntity) viewCenter).getEyePosition(1.0F) : viewCenter.position();
-            Vector3d lookVec = viewCenter instanceof LivingEntity
-                    ? ((LivingEntity) viewCenter).getViewVector(1.0F) : viewCenter.getLookAngle();
             double range = AshesToAshesConstants.QUERY_RADIUS_GUARDIAN;
-            Vector3d maxVec = eyePos.add(lookVec.scale(range));
-            AxisAlignedBB aabb = viewCenter.getBoundingBox().expandTowards(lookVec.scale(range)).inflate(1.0);
 
-            EntityRayTraceResult result = ProjectileHelper.getEntityHitResult(
-                    viewCenter, eyePos, maxVec, aabb,
+            RayTraceResult rtResult = JojoModUtil.rayTrace(viewCenter, range,
                     entity -> entity instanceof LivingEntity && entity.isAlive()
                             && entity != user && !(entity instanceof FossilMothEntity)
-                            && !(entity instanceof StandEntity),
-                    range * range);
-            Entity targetEntity = result != null ? result.getEntity() : null;
+                            && !(entity instanceof StandEntity));
+            Entity targetEntity = rtResult instanceof EntityRayTraceResult ? ((EntityRayTraceResult) rtResult).getEntity() : null;
 
             List<FossilMothEntity> currentGuardians = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+            int targetGuardianCount = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
+                    .map(com.babelmoth.rotp_ata.capability.IMothPool::getShieldMothCount)
+                    .orElse(10);
 
-            if (targetEntity == null || currentGuardians.size() >= GUARDIAN_MOTH_COUNT) {
+            if (targetEntity == null) {
                 for (FossilMothEntity moth : currentGuardians) {
                     moth.setShieldTarget(null);
                 }
                 return;
             }
 
-            List<FossilMothEntity> availableMoths = MothQueryUtil.getFreeMothsAround(user, viewCenter, range);
-            int needMore = GUARDIAN_MOTH_COUNT - currentGuardians.size();
-
-            if (availableMoths.size() < needMore) {
-                int toSpawn = needMore - availableMoths.size();
-                Entity spawnCenter = viewCenter;
-                user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                    for (int i = 0; i < toSpawn; i++) {
-                        int slot = pool.allocateSlotWithPriority(true);
-                        if (slot != -1) {
-                            FossilMothEntity moth = new FossilMothEntity(world, user);
-                            moth.setMothPoolIndex(slot);
-                            moth.setPos(spawnCenter.getX(), spawnCenter.getY() + 1, spawnCenter.getZ());
-                            world.addFreshEntity(moth);
-                            availableMoths.add(moth);
-                        }
-                    }
-                    if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                        pool.sync((net.minecraft.entity.player.ServerPlayerEntity) user);
-                    }
-                });
+            for (FossilMothEntity moth : currentGuardians) {
+                moth.setShieldTarget(targetEntity, true);
+                moth.refreshShield();
             }
 
+            if (currentGuardians.size() >= targetGuardianCount) {
+                return;
+            }
+
+            List<FossilMothEntity> availableMoths = MothQueryUtil.getFreeMothsAround(user, viewCenter, range);
+            int needMore = targetGuardianCount - currentGuardians.size();
             int recruited = 0;
             for (FossilMothEntity moth : availableMoths) {
-                if (currentGuardians.size() + recruited >= GUARDIAN_MOTH_COUNT) break;
+                if (recruited >= needMore) break;
                 moth.setShieldTarget(targetEntity, true);
                 moth.setIsShieldMoth(false);
                 moth.refreshShield();
                 moth.detach();
                 recruited++;
-            }
-
-            for (FossilMothEntity moth : currentGuardians) {
-                moth.setShieldTarget(targetEntity, true);
-                moth.refreshShield();
             }
         }
     }

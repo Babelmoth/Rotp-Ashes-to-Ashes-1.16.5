@@ -1,13 +1,14 @@
 package com.babelmoth.rotp_ata.action;
 
-import com.babelmoth.rotp_ata.entity.AshesToAshesStandEntity;
+import com.babelmoth.rotp_ata.capability.MothPoolProvider;
+import com.babelmoth.rotp_ata.entity.FossilMothEntity;
+import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
+import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
@@ -25,13 +26,12 @@ public class AshesToAshesAdhesion extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-
-        if (target.getType() == ActionTarget.TargetType.BLOCK) {
+        MothQueryUtil.ResolvedTarget resolvedTarget = resolveTarget(user);
+        if (resolvedTarget.hasBlock()) {
             return ActionConditionResult.POSITIVE;
         }
-        if (target.getType() == ActionTarget.TargetType.ENTITY) {
-
-            if (target.getEntity() instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
+        if (resolvedTarget.hasEntity()) {
+            if (resolvedTarget.getEntity() instanceof FossilMothEntity) {
                 return ActionConditionResult.NEGATIVE;
             }
             return ActionConditionResult.POSITIVE;
@@ -41,34 +41,43 @@ public class AshesToAshesAdhesion extends StandAction {
     }
 
     @Override
-    protected void perform(net.minecraft.world.World world, LivingEntity user, IStandPower power, ActionTarget target) {
+    protected void perform(World world, LivingEntity user, IStandPower power, ActionTarget target) {
         if (!world.isClientSide) {
-            java.util.List<com.babelmoth.rotp_ata.entity.FossilMothEntity> freeMoths =
-                com.babelmoth.rotp_ata.util.MothQueryUtil.getViewpointFreeMoths(user, 64);
+            MothQueryUtil.ResolvedTarget resolvedTarget = resolveTarget(user);
+            if (resolvedTarget.isEmpty()) {
+                return;
+            }
 
-            freeMoths.sort(java.util.Comparator.comparingInt(com.babelmoth.rotp_ata.entity.FossilMothEntity::getKineticEnergy));
+            java.util.List<FossilMothEntity> freeMoths =
+                MothQueryUtil.getViewpointFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM, true);
 
-            com.babelmoth.rotp_ata.entity.FossilMothEntity activeMoth = null;
+            freeMoths.sort(java.util.Comparator.comparingInt(FossilMothEntity::getKineticEnergy));
+
+            FossilMothEntity activeMoth = null;
             boolean isNewMoth = false;
 
             if (!freeMoths.isEmpty()) {
                 activeMoth = freeMoths.get(0);
             } else {
-                boolean canSpawn = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
-                    .map(pool -> pool.getTotalMoths() < com.babelmoth.rotp_ata.capability.IMothPool.MAX_MOTHS)
-                    .orElse(false);
-
-                if (canSpawn) {
-                    activeMoth = new com.babelmoth.rotp_ata.entity.FossilMothEntity(world, user);
-                    isNewMoth = true;
-                }
+                activeMoth = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY)
+                    .map(pool -> {
+                        int slot = pool.allocateSlotWithPriority(true);
+                        if (slot == -1) {
+                            return null;
+                        }
+                        FossilMothEntity moth = new FossilMothEntity(world, user);
+                        moth.setMothPoolIndex(slot);
+                        return moth;
+                    })
+                    .orElse(null);
+                isNewMoth = activeMoth != null;
             }
 
             if (activeMoth != null) {
-            if (target.getType() == ActionTarget.TargetType.BLOCK) {
-                    activeMoth.attachTo(target.getBlockPos(), target.getFace());
-                } else if (target.getType() == ActionTarget.TargetType.ENTITY) {
-                    activeMoth.attachToEntity(target.getEntity());
+                if (resolvedTarget.hasBlock()) {
+                    activeMoth.attachTo(resolvedTarget.getBlockPos(), resolvedTarget.getFace());
+                } else if (resolvedTarget.hasEntity()) {
+                    activeMoth.attachToEntity(resolvedTarget.getEntity());
                 }
 
                 if (isNewMoth) {
@@ -76,5 +85,11 @@ public class AshesToAshesAdhesion extends StandAction {
                 }
             }
         }
+    }
+
+    private static MothQueryUtil.ResolvedTarget resolveTarget(LivingEntity user) {
+        return MothQueryUtil.resolveBlockOrEntityTarget(user.level, user, AshesToAshesConstants.QUERY_RADIUS_SWARM, true,
+                entity -> entity instanceof LivingEntity && entity.isAlive() && entity != user
+                        && !(entity instanceof StandEntity) && !(entity instanceof FossilMothEntity));
     }
 }

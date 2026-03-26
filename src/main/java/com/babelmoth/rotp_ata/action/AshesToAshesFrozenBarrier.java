@@ -1,16 +1,14 @@
 package com.babelmoth.rotp_ata.action;
 
 import com.babelmoth.rotp_ata.block.FrozenBarrierBlockEntity;
-import com.babelmoth.rotp_ata.init.InitBlocks;
 import com.babelmoth.rotp_ata.capability.MothPoolProvider;
-import com.babelmoth.rotp_ata.capability.IMothPool;
-import com.babelmoth.rotp_ata.util.MothQueryUtil;
+import com.babelmoth.rotp_ata.init.InitBlocks;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
+import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-
 import net.minecraft.block.BlockState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -20,7 +18,13 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TranslationTextComponent;
 import net.minecraft.world.World;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 public class AshesToAshesFrozenBarrier extends StandAction {
 
@@ -33,16 +37,19 @@ public class AshesToAshesFrozenBarrier extends StandAction {
 
     @Override
     public TargetRequirement getTargetRequirement() {
-        return TargetRequirement.BLOCK;
+        return TargetRequirement.ANY;
     }
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
         boolean hasSlots = user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY)
-            .map(pool -> pool.getTotalMoths() + MOTHS_PER_BARRIER <= IMothPool.MAX_MOTHS)
+            .map(pool -> pool.getAvailableSlotCount() >= MOTHS_PER_BARRIER)
             .orElse(false);
         if (!hasSlots) {
             return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.requires_moths", MOTHS_PER_BARRIER));
+        }
+        if (resolvePlacementTarget(user).isEmpty()) {
+            return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.need_target"));
         }
         return ActionConditionResult.POSITIVE;
     }
@@ -59,11 +66,11 @@ public class AshesToAshesFrozenBarrier extends StandAction {
         if (world.isClientSide || !(user instanceof PlayerEntity)) return;
 
         PlayerEntity player = (PlayerEntity) user;
-        BlockPos targetPos = target.getBlockPos();
-        if (targetPos == null) return;
+        MothQueryUtil.ResolvedTarget resolvedTarget = resolvePlacementTarget(user);
+        if (!resolvedTarget.hasBlock()) return;
 
-        Direction face = target.getType() == ActionTarget.TargetType.BLOCK ? target.getFace() : Direction.UP;
-        if (face == null) face = Direction.UP;
+        BlockPos targetPos = resolvedTarget.getBlockPos();
+        Direction face = resolvedTarget.getFace() != null ? resolvedTarget.getFace() : Direction.UP;
         BlockPos placePos = targetPos.relative(face);
         BlockState placeState = world.getBlockState(placePos);
         if (!placeState.isAir() && !placeState.getMaterial().isReplaceable()) {
@@ -102,6 +109,10 @@ public class AshesToAshesFrozenBarrier extends StandAction {
             barrier.setMothSlots(allocatedSlots);
         }
         barriers.add(placePos);
+    }
+
+    private static MothQueryUtil.ResolvedTarget resolvePlacementTarget(LivingEntity user) {
+        return MothQueryUtil.resolveBlockTarget(user.level, user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN, true);
     }
 
     public static void onBarrierRemoved(UUID ownerUUID, BlockPos pos) {

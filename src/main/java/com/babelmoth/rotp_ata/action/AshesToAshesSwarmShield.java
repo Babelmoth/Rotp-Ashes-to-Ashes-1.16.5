@@ -3,6 +3,7 @@ package com.babelmoth.rotp_ata.action;
 import javax.annotation.Nullable;
 
 import com.babelmoth.rotp_ata.AddonMain;
+import com.babelmoth.rotp_ata.capability.MothPoolProvider;
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
@@ -78,7 +79,26 @@ public class AshesToAshesSwarmShield extends StandAction {
             if (!newState) {
                 clearOwnerMothsShieldTarget(world, user);
             }
+            else {
+                recruitShieldMoths(user);
+            }
         }
+    }
+
+    private static void recruitShieldMoths(LivingEntity user) {
+        user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+            int targetShieldCount = pool.getShieldMothCount();
+            List<FossilMothEntity> shieldMoths = MothQueryUtil.getShieldMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+            List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
+            int toRecruit = Math.min(Math.max(0, targetShieldCount - shieldMoths.size()), freeMoths.size());
+            for (int i = 0; i < toRecruit; i++) {
+                FossilMothEntity moth = freeMoths.get(i);
+                moth.setShieldTarget(user, true);
+                moth.setIsShieldMoth(true);
+                moth.detach();
+                moth.refreshShield();
+            }
+        });
     }
 
     private static void clearOwnerMothsShieldTarget(World world, LivingEntity owner) {

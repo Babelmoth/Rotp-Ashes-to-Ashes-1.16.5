@@ -14,6 +14,7 @@ public interface IMothPool extends INBTSerializable<CompoundNBT> {
 
     int getTotalMoths();
     void setTotalMoths(int count);
+    int getAvailableSlotCount();
 
     int getMothKinetic(int index);
     void setMothKinetic(int index, int amount);

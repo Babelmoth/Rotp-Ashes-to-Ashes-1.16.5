@@ -1,5 +1,6 @@
 package com.babelmoth.rotp_ata.action;
 
+import com.babelmoth.rotp_ata.capability.MothPoolProvider;
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
 import com.babelmoth.rotp_ata.event.AshesToAshesEventHandler;
 import com.github.standobyte.jojo.action.ActionConditionResult;
@@ -8,10 +9,9 @@ import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-
 import com.github.standobyte.jojo.init.ModStatusEffects;
-
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
 import net.minecraft.world.World;
@@ -34,7 +34,6 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
 
     @Override
     public ActionConditionResult checkSpecificConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-
         IStandManifestation manifestation = power.getStandManifestation();
         if (manifestation instanceof StandEntity) {
             StandEntity stand = (StandEntity) manifestation;
@@ -48,21 +47,28 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
     @Override
     public void onHoldTick(World world, LivingEntity user, IStandPower power, int ticksHeld, ActionTarget target, boolean requirementsMet) {
         if (!world.isClientSide && requirementsMet) {
-
             int fireInterval = user.hasEffect(ModStatusEffects.RESOLVE.get()) ? 3 : 5;
             if (ticksHeld % fireInterval == 0) {
-
                 int momentumCost = 5;
                 float staminaCost = 50.0f;
 
                 if (power.getStamina() >= staminaCost) {
+                    user.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+                        int slot = pool.allocateSlotWithPriority(true);
+                        if (slot == -1) {
+                            return;
+                        }
 
-                    int hamonUsed = consumeMothEnergy(user, momentumCost, power);
-                    if (hamonUsed >= 0) {
+                        int hamonUsed = consumeMothEnergy(user, momentumCost, power);
+                        if (hamonUsed < 0) {
+                            pool.recallMoth(slot);
+                            return;
+                        }
 
                         power.consumeStamina(staminaCost);
 
                         FossilMothEntity bulletMoth = new FossilMothEntity(world, user);
+                        bulletMoth.setMothPoolIndex(slot);
 
                         if (hamonUsed > 0) {
                             bulletMoth.setHamonEnergy(1);
@@ -80,7 +86,6 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
                         bulletMoth.setIsBullet(true);
 
                         net.minecraft.util.math.vector.Vector3d lookDir = user.getViewVector(1.0f);
-
                         lookDir = lookDir.add(
                             (world.random.nextDouble() - 0.5) * 0.1,
                             (world.random.nextDouble() - 0.5) * 0.1,
@@ -90,10 +95,13 @@ public class AshesToAshesBulletWithButterflyWings extends StandAction {
                         bulletMoth.piercingFire(lookDir, speed);
 
                         world.addFreshEntity(bulletMoth);
+                        if (user instanceof ServerPlayerEntity) {
+                            pool.sync((ServerPlayerEntity) user);
+                        }
 
                         world.playSound(null, px, py, pz,
                             SoundEvents.FIRECHARGE_USE, SoundCategory.PLAYERS, 0.5f, 1.5f + world.random.nextFloat() * 0.5f);
-                    }
+                    });
                 }
             }
         }

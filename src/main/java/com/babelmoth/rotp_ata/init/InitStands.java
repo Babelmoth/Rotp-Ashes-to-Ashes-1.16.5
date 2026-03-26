@@ -1,22 +1,22 @@
 package com.babelmoth.rotp_ata.init;
 
-import com.github.standobyte.jojo.action.Action;
-import com.github.standobyte.jojo.entity.stand.StandEntityType;
-import com.github.standobyte.jojo.init.power.stand.EntityStandRegistryObject;
-import com.github.standobyte.jojo.init.power.stand.ModStandsInit;
-import com.github.standobyte.jojo.power.impl.stand.stats.StandStats;
-import com.github.standobyte.jojo.power.impl.stand.type.EntityStandType;
-import com.github.standobyte.jojo.power.impl.stand.type.StandType;
 import com.babelmoth.rotp_ata.AddonMain;
-import com.babelmoth.rotp_ata.entity.AshesToAshesStandEntity;
-import com.babelmoth.rotp_ata.entity.ThelaHunGinjeetStandEntity;
 import com.babelmoth.rotp_ata.action.AshesToAshesAdhesion;
 import com.babelmoth.rotp_ata.action.AshesToAshesKineticAdhesion;
 import com.babelmoth.rotp_ata.action.AshesToAshesMothBite;
+import com.babelmoth.rotp_ata.action.AshesToAshesMothCharge;
 import com.babelmoth.rotp_ata.action.AshesToAshesMothRecall;
+import com.babelmoth.rotp_ata.action.AshesToAshesSwarmCharge;
 import com.babelmoth.rotp_ata.action.ThelaHunGinjeetRecall;
+import com.babelmoth.rotp_ata.entity.AshesToAshesStandEntity;
+import com.babelmoth.rotp_ata.entity.ThelaHunGinjeetStandEntity;
+import com.github.standobyte.jojo.action.Action;
 import com.github.standobyte.jojo.action.stand.StandAction;
-
+import com.github.standobyte.jojo.entity.stand.StandEntityType;
+import com.github.standobyte.jojo.init.power.stand.EntityStandRegistryObject;
+import com.github.standobyte.jojo.power.impl.stand.stats.StandStats;
+import com.github.standobyte.jojo.power.impl.stand.type.EntityStandType;
+import com.github.standobyte.jojo.power.impl.stand.type.StandType;
 import net.minecraftforge.fml.RegistryObject;
 import net.minecraftforge.registries.DeferredRegister;
 
@@ -49,16 +49,26 @@ public class InitStands {
                     .cooldown(0, 0, 1.0f)));
 
     public static final RegistryObject<AshesToAshesAdhesion> ASHES_TO_ASHES_ADHESION = ACTIONS.register("ashes_to_ashes_adhesion",
-            () -> new AshesToAshesAdhesion(
-                    addShift(new StandAction.Builder()
+            () -> new AshesToAshesAdhesion(new StandAction.Builder()
                     .resolveLevelToUnlock(0)
-                    .cooldown(0, 0, 1.0f), ASHES_TO_ASHES_KINETIC_ADHESION::get)));
+                         .cooldown(0, 0, 1.0f)));
 
     public static final RegistryObject<AshesToAshesMothRecall> ASHES_TO_ASHES_MOTH_RECALL = ACTIONS.register("ashes_to_ashes_moth_recall",
             () -> new AshesToAshesMothRecall(
                     addShift(new StandAction.Builder()
-                    .resolveLevelToUnlock(0)
-                    .cooldown(5, 0, 1.0f), ASHES_TO_ASHES_SWARM_RECALL::get)));
+                            .resolveLevelToUnlock(0)
+                            .cooldown(5, 0, 1.0f), ASHES_TO_ASHES_SWARM_RECALL::get)));
+
+    public static final RegistryObject<AshesToAshesSwarmCharge> ASHES_TO_ASHES_SWARM_CHARGE = ACTIONS.register("ashes_to_ashes_swarm_charge",
+            () -> new AshesToAshesSwarmCharge(new StandAction.Builder()
+                    .resolveLevelToUnlock(3)
+                    .cooldown(4, 0, 1.0f)));
+
+    public static final RegistryObject<AshesToAshesMothCharge> ASHES_TO_ASHES_MOTH_CHARGE = ACTIONS.register("ashes_to_ashes_moth_charge",
+            () -> new AshesToAshesMothCharge(
+                    addShift(new StandAction.Builder()
+                            .resolveLevelToUnlock(2)
+                            .cooldown(2, 0, 1.0f), ASHES_TO_ASHES_SWARM_CHARGE::get)));
 
     public static final RegistryObject<AshesToAshesMothBite> ASHES_TO_ASHES_MOTH_BITE = ACTIONS.register("ashes_to_ashes_moth_bite",
             () -> new AshesToAshesMothBite(new StandAction.Builder()
@@ -73,19 +83,18 @@ public class InitStands {
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesMothSwarmAttack> ASHES_TO_ASHES_MOTH_SWARM_ATTACK = ACTIONS.register("ashes_to_ashes_moth_swarm_attack",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesMothSwarmAttack(
                     addShift(new StandAction.Builder()
-                    .resolveLevelToUnlock(1)
-                    .cooldown(0, 0, 1.0f), ASHES_TO_ASHES_MOTH_JET::get)));
+                            .resolveLevelToUnlock(1)
+                            .cooldown(0, 0, 1.0f), ASHES_TO_ASHES_MOTH_JET::get)));
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield> ASHES_TO_ASHES_SWARM_SHIELD = ACTIONS.register("ashes_to_ashes_swarm_shield",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield(
                     addShift(new StandAction.Builder()
-                    .resolveLevelToUnlock(0)
-                    .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_SWARM_GUARDIAN::get)));
+                            .resolveLevelToUnlock(0)
+                            .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_SWARM_GUARDIAN::get)));
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesKineticPiercing> ASHES_TO_ASHES_KINETIC_PIERCING = ACTIONS.register("ashes_to_ashes_kinetic_piercing",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesKineticPiercing(new StandAction.Builder()
-                    .resolveLevelToUnlock(3)
-                    ));
+                    .resolveLevelToUnlock(3)));
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesBulletWithButterflyWings> ASHES_TO_ASHES_BULLET_WITH_BUTTERFLY_WINGS = ACTIONS.register("ashes_to_ashes_bullet_with_butterfly_wings",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesBulletWithButterflyWings(new StandAction.Builder()
@@ -100,8 +109,8 @@ public class InitStands {
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesKineticDetonation> ASHES_TO_ASHES_KINETIC_DETONATION = ACTIONS.register("ashes_to_ashes_kinetic_detonation",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesKineticDetonation(
                     addShift(new StandAction.Builder()
-                    .resolveLevelToUnlock(4)
-                    .cooldown(20, 0, 1.0f), ASHES_TO_ASHES_EXFOLIATING_DETONATION::get)));
+                            .resolveLevelToUnlock(4)
+                            .cooldown(20, 0, 1.0f), ASHES_TO_ASHES_EXFOLIATING_DETONATION::get)));
 
     private static StandAction.Builder addShift(StandAction.Builder builder, java.util.function.Supplier<? extends Action<?>> shift) {
         try {
@@ -110,7 +119,8 @@ public class InitStands {
             while (clazz != null && m == null) {
                 try {
                     m = clazz.getDeclaredMethod("addShiftVariation", java.util.function.Supplier.class);
-                } catch (NoSuchMethodException e) {
+                }
+                catch (NoSuchMethodException e) {
                     clazz = clazz.getSuperclass();
                 }
             }
@@ -118,7 +128,8 @@ public class InitStands {
                 m.setAccessible(true);
                 m.invoke(builder, shift);
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             AddonMain.LOGGER.error("Failed to add shift variation", e);
         }
         return builder;
@@ -137,39 +148,40 @@ public class InitStands {
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesFrozenBarrier> ASHES_TO_ASHES_FROZEN_BARRIER = ACTIONS.register("ashes_to_ashes_frozen_barrier",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesFrozenBarrier(
                     addShift(new StandAction.Builder()
-                    .resolveLevelToUnlock(3)
-                    .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_REMOVE_BARRIER::get)));
+                            .resolveLevelToUnlock(3)
+                            .cooldown(10, 0, 1.0f), ASHES_TO_ASHES_REMOVE_BARRIER::get)));
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.AshesToAshesSwarmConfig> ASHES_TO_ASHES_SWARM_CONFIG = ACTIONS.register("ashes_to_ashes_swarm_config",
             () -> new com.babelmoth.rotp_ata.action.AshesToAshesSwarmConfig(new StandAction.Builder()
                     .resolveLevelToUnlock(0)
                     .cooldown(5, 0, 1.0f)));
 
+
     public static final EntityStandRegistryObject<EntityStandType<StandStats>, StandEntityType<AshesToAshesStandEntity>> STAND_ASHES_TO_ASHES =
             new EntityStandRegistryObject<>("ashes_to_ashes",
                     STANDS,
                     () -> new EntityStandType.Builder<StandStats>()
-                    .color(0x8B7355)
-                    .storyPartName(InitStands.ORIGINAL_STANDS_PART.getName())
-                    .leftClickHotbar(ASHES_TO_ASHES_MOTH_BITE.get(), ASHES_TO_ASHES_MOTH_SWARM_ATTACK.get(), ASHES_TO_ASHES_ADHESION.get(), ASHES_TO_ASHES_KINETIC_PIERCING.get(), ASHES_TO_ASHES_BULLET_WITH_BUTTERFLY_WINGS.get())
-                    .rightClickHotbar(ASHES_TO_ASHES_SWARM_SHIELD.get(), ASHES_TO_ASHES_MOTH_RECALL.get(), ASHES_TO_ASHES_KINETIC_DETONATION.get(), ASHES_TO_ASHES_KINETIC_SENSING.get(), ASHES_TO_ASHES_FROZEN_BARRIER.get(), ASHES_TO_ASHES_SWARM_CONFIG.get())
-                    .defaultStats(StandStats.class, new StandStats.Builder()
-                            .tier(5)
-                            .power(1.0)
-                            .speed(10.0)
-                            .range(50, 100)
-                            .durability(12.0, 14.0)
-                            .precision(8.0, 10)
-                            .build())
-                    .addSummonShout(InitSounds.ASHES_TO_ASHES_SUMMON_VOICELINE)
-                    .addOst(InitSounds.ASHES_TO_ASHES_OST)
-                    .build(),
+                            .color(0x8B7355)
+                            .storyPartName(InitStands.ORIGINAL_STANDS_PART.getName())
+                            .leftClickHotbar(ASHES_TO_ASHES_MOTH_BITE.get(), ASHES_TO_ASHES_MOTH_SWARM_ATTACK.get(), ASHES_TO_ASHES_ADHESION.get(), ASHES_TO_ASHES_KINETIC_PIERCING.get(), ASHES_TO_ASHES_BULLET_WITH_BUTTERFLY_WINGS.get())
+                            .rightClickHotbar(ASHES_TO_ASHES_SWARM_SHIELD.get(), ASHES_TO_ASHES_MOTH_RECALL.get(), ASHES_TO_ASHES_MOTH_CHARGE.get(), ASHES_TO_ASHES_KINETIC_DETONATION.get(), ASHES_TO_ASHES_KINETIC_SENSING.get(), ASHES_TO_ASHES_FROZEN_BARRIER.get(), ASHES_TO_ASHES_SWARM_CONFIG.get())
+                            .defaultStats(StandStats.class, new StandStats.Builder()
+                                    .tier(5)
+                                    .power(1.0)
+                                    .speed(10.0)
+                                    .range(50, 100)
+                                    .durability(12.0, 14.0)
+                                    .precision(8.0, 10)
+                                    .build())
+                            .addSummonShout(InitSounds.ASHES_TO_ASHES_SUMMON_VOICELINE)
+                            .addOst(InitSounds.ASHES_TO_ASHES_OST)
+                            .build(),
 
                     InitEntities.ENTITIES,
                     () -> new StandEntityType<AshesToAshesStandEntity>(AshesToAshesStandEntity::new, 0.065F, 0.195F)
-                    .summonSound(InitSounds.ASHES_TO_ASHES_SUMMON_SOUND)
-                    .unsummonSound(InitSounds.ASHES_TO_ASHES_UNSUMMON_SOUND))
-            .withDefaultStandAttributes();
+                            .summonSound(InitSounds.ASHES_TO_ASHES_SUMMON_SOUND)
+                            .unsummonSound(InitSounds.ASHES_TO_ASHES_UNSUMMON_SOUND))
+                    .withDefaultStandAttributes();
 
     public static final RegistryObject<com.babelmoth.rotp_ata.action.ThelaHunGinjeetSwiftThrust> THELA_HUN_GINJEET_SWIFT_THRUST = ACTIONS.register("thela_hun_ginjeet_swift_thrust",
             () -> new com.babelmoth.rotp_ata.action.ThelaHunGinjeetSwiftThrust(new StandAction.Builder()
@@ -241,6 +253,33 @@ public class InitStands {
                     () -> new StandEntityType<ThelaHunGinjeetStandEntity>(ThelaHunGinjeetStandEntity::new, 0.0F, 0.0F)
                             .summonSound(InitSounds.ASHES_TO_ASHES_SUMMON_SOUND)
                             .unsummonSound(InitSounds.ASHES_TO_ASHES_UNSUMMON_SOUND))
-            .withDefaultStandAttributes();
+                    .withDefaultStandAttributes();
 
+    public static final com.github.standobyte.jojo.util.mod.StoryPart JUJUTSU_KAISEN_PART = com.github.standobyte.jojo.util.mod.StoryPart.create(
+            new net.minecraft.util.ResourceLocation(AddonMain.MOD_ID, "part_jujutsu_kaisen"),
+            "jojo.story_part.jujutsu_kaisen",
+            name -> name.withStyle(style -> style.withColor(net.minecraft.util.text.Color.parseColor("#ac7f2a"))));
+
+    public static final EntityStandRegistryObject<com.babelmoth.rotp_ata.power.DharmaChakraStandType<StandStats>, StandEntityType<com.babelmoth.rotp_ata.entity.DharmaChakraEntity>> STAND_DHARMA_CHAKRA =
+            new EntityStandRegistryObject<>("dharma_chakra",
+                    STANDS,
+                    () -> new com.babelmoth.rotp_ata.power.DharmaChakraStandType.Builder<StandStats>()
+                            .color(0xDAA520)
+                            .storyPartName(InitStands.ORIGINAL_STANDS_PART.getName())
+                            .leftClickHotbar()
+                            .rightClickHotbar()
+                            .defaultStats(StandStats.class, new StandStats.Builder()
+                                    .tier(6)
+                                    .power(3, 3)
+                                    .speed(3, 3)
+                                    .range(1, 0)
+                                    .durability(10, 10)
+                                    .precision(15, 15)
+                                    .build())
+                            .disableManualControl()
+                            .build(),
+
+                    InitEntities.ENTITIES,
+                    () -> new StandEntityType<>(com.babelmoth.rotp_ata.entity.DharmaChakraEntity::new, 0.5F, 0.5F))
+                    .withDefaultStandAttributes();
 }

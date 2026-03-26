@@ -10,6 +10,7 @@ import com.mojang.blaze3d.matrix.MatrixStack;
 import net.minecraft.client.renderer.IRenderTypeBuffer;
 import net.minecraft.client.renderer.entity.EntityRendererManager;
 import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.vector.Vector3f;
 
 public class AshesToAshesStandRenderer extends StandEntityRenderer<AshesToAshesStandEntity, StandEntityModel<AshesToAshesStandEntity>> {
 
@@ -22,6 +23,9 @@ public class AshesToAshesStandRenderer extends StandEntityRenderer<AshesToAshesS
     @Override
     public void render(AshesToAshesStandEntity entity, float entityYaw, float partialTicks,
             MatrixStack matrixStack, IRenderTypeBuffer buffer, int packedLight) {
-
+        matrixStack.pushPose();
+        matrixStack.mulPose(Vector3f.YP.rotationDegrees(180f));
+        super.render(entity, entityYaw, partialTicks, matrixStack, buffer, packedLight);
+        matrixStack.popPose();
     }
 }

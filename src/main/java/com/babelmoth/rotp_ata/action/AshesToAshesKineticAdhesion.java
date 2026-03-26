@@ -3,12 +3,13 @@ package com.babelmoth.rotp_ata.action;
 import com.babelmoth.rotp_ata.capability.IMothPool;
 import com.babelmoth.rotp_ata.capability.MothPoolProvider;
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
+import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
+import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.ServerPlayerEntity;
 import net.minecraft.util.text.TranslationTextComponent;
@@ -27,13 +28,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
 
     @Override
     public ActionConditionResult checkConditions(LivingEntity user, IStandPower power, ActionTarget target) {
-
-        if (target.getType() == ActionTarget.TargetType.BLOCK) {
+        MothQueryUtil.ResolvedTarget resolvedTarget = resolveTarget(user);
+        if (resolvedTarget.hasBlock()) {
             return ActionConditionResult.POSITIVE;
         }
-        if (target.getType() == ActionTarget.TargetType.ENTITY) {
-
-            if (target.getEntity() instanceof FossilMothEntity) {
+        if (resolvedTarget.hasEntity()) {
+            if (resolvedTarget.getEntity() instanceof FossilMothEntity) {
                 return ActionConditionResult.NEGATIVE;
             }
             return ActionConditionResult.POSITIVE;
@@ -49,8 +49,12 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         if (!poolOpt.isPresent()) return;
 
         IMothPool pool = poolOpt.get();
+        MothQueryUtil.ResolvedTarget resolvedTarget = resolveTarget(user);
+        if (resolvedTarget.isEmpty()) {
+            return;
+        }
 
-        java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, 64.0);
+        java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getViewpointFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM, true);
         freeMoths.removeIf(m -> {
             int idx = m.getMothPoolIndex();
             int current = (idx >= 0 && pool.isSlotActive(idx)) ? pool.getMothKinetic(idx) : m.getKineticEnergy();
@@ -67,14 +71,11 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         if (!freeMoths.isEmpty()) {
             activeMoth = freeMoths.get(0);
         } else {
-
-            if (pool.getTotalMoths() < IMothPool.MAX_MOTHS) {
-                int slot = pool.allocateSlotWithPriority(true);
-                if (slot < 0) return;
-                activeMoth = new FossilMothEntity(world, user);
-                activeMoth.setMothPoolIndex(slot);
-                isNewMoth = true;
-            }
+            int slot = pool.allocateSlotWithPriority(true);
+            if (slot < 0) return;
+            activeMoth = new FossilMothEntity(world, user);
+            activeMoth.setMothPoolIndex(slot);
+            isNewMoth = true;
         }
 
         if (activeMoth == null) {
@@ -101,10 +102,10 @@ public class AshesToAshesKineticAdhesion extends StandAction {
             return;
         }
 
-        if (target.getType() == ActionTarget.TargetType.BLOCK) {
-            activeMoth.attachTo(target.getBlockPos(), target.getFace());
-        } else if (target.getType() == ActionTarget.TargetType.ENTITY) {
-            activeMoth.attachToEntity(target.getEntity());
+        if (resolvedTarget.hasBlock()) {
+            activeMoth.attachTo(resolvedTarget.getBlockPos(), resolvedTarget.getFace());
+        } else if (resolvedTarget.hasEntity()) {
+            activeMoth.attachToEntity(resolvedTarget.getEntity());
         }
 
         int takeLimit = Math.min(roomLocal, available);
@@ -123,5 +124,11 @@ public class AshesToAshesKineticAdhesion extends StandAction {
         if (isNewMoth) {
             world.addFreshEntity(activeMoth);
         }
+    }
+
+    private static MothQueryUtil.ResolvedTarget resolveTarget(LivingEntity user) {
+        return MothQueryUtil.resolveBlockOrEntityTarget(user.level, user, AshesToAshesConstants.QUERY_RADIUS_SWARM, true,
+                entity -> entity instanceof LivingEntity && entity.isAlive() && entity != user
+                        && !(entity instanceof StandEntity) && !(entity instanceof FossilMothEntity));
     }
 }

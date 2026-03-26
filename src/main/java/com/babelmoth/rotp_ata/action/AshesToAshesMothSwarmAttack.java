@@ -6,20 +6,18 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.babelmoth.rotp_ata.entity.FossilMothEntity;
+import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
+import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
-import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
-import com.babelmoth.rotp_ata.util.MothQueryUtil;
-import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
-
+import com.github.standobyte.jojo.util.mod.JojoModUtil;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.item.ItemEntity;
-import net.minecraft.util.math.vector.Vector3d;
-import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.util.math.EntityRayTraceResult;
+import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.world.World;
 
 public class AshesToAshesMothSwarmAttack extends StandAction {
@@ -70,7 +68,7 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
         if (!power.isActive()) {
             return ActionConditionResult.POSITIVE;
         }
-        return ActionConditionResult.createNegative(new TranslationTextComponent("jojo.ata.message.no_moths_available"));
+        return ActionConditionResult.createNegative(new net.minecraft.util.text.TranslationTextComponent("jojo.ata.message.no_moths_available"));
     }
 
     @Override
@@ -96,34 +94,16 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
 
     private static void runSwarmAttackStatic(net.minecraft.world.server.ServerWorld world, LivingEntity user, IStandPower power) {
         double range = AshesToAshesConstants.QUERY_RADIUS_SWARM;
-
         Entity viewEntity = user;
-        Vector3d eyePos = user.getEyePosition(1.0F);
-        Vector3d lookVec = user.getViewVector(1.0F);
-
-        IStandManifestation stand = power.getStandManifestation();
-        if (stand instanceof StandEntity) {
-            StandEntity standEntity = (StandEntity) stand;
-            if (standEntity.isManuallyControlled()) {
-                viewEntity = standEntity;
-                eyePos = standEntity.getEyePosition(1.0F);
-                lookVec = standEntity.getViewVector(1.0F);
-            }
-        }
 
         List<FossilMothEntity> moths = MothQueryUtil.getViewpointSwarmMoths(user, range);
         if (moths.isEmpty()) {
             return;
         }
 
-        net.minecraft.util.math.vector.Vector3d maxVec = eyePos.add(lookVec.x * range, lookVec.y * range, lookVec.z * range);
-        net.minecraft.util.math.AxisAlignedBB aabb = viewEntity.getBoundingBox().expandTowards(lookVec.scale(range)).inflate(1.0D, 1.0D, 1.0D);
-        final Entity finalViewEntity = viewEntity;
-
-        net.minecraft.util.math.EntityRayTraceResult result = net.minecraft.entity.projectile.ProjectileHelper.getEntityHitResult(
-            viewEntity, eyePos, maxVec, aabb,
+        RayTraceResult rtResult = JojoModUtil.rayTrace(viewEntity, range,
             entity -> {
-                if (entity.isSpectator() || entity == user || entity == finalViewEntity || entity instanceof FossilMothEntity)
+                if (entity.isSpectator() || entity == user || entity == viewEntity || entity instanceof FossilMothEntity)
                     return false;
                 if (entity instanceof LivingEntity)
                     return entity.isPickable() && ((LivingEntity) entity).isAlive();
@@ -132,11 +112,9 @@ public class AshesToAshesMothSwarmAttack extends StandAction {
                     return !ie.removed && !ie.getItem().isEmpty() && !ie.getPersistentData().getBoolean("ata_retrieved");
                 }
                 return false;
-            },
-            range * range
-        );
+            });
 
-        Entity targetEntity = result != null ? result.getEntity() : null;
+        Entity targetEntity = rtResult instanceof EntityRayTraceResult ? ((EntityRayTraceResult) rtResult).getEntity() : null;
         if (targetEntity != null && !moths.isEmpty()) {
             int swarmPercent = user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
                     .map(com.babelmoth.rotp_ata.capability.IMothPool::getSwarmAttackCount)

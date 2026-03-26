@@ -97,7 +97,13 @@ public class ThelaHunGinjeetSpearItem extends Item {
         }
         PlayerEntity player = (PlayerEntity) livingEntity;
         int usedTicks = this.getUseDuration(stack) - timeLeft;
-        if (usedTicks < 10) {
+        int minCharge = 10;
+        boolean hasResolve = IStandPower.getStandPowerOptional(player)
+                .map(power -> power.getResolveLevel() > 0).orElse(false);
+        if (hasResolve) {
+            minCharge = 8;
+        }
+        if (usedTicks < minCharge) {
             return;
         }
         if (!world.isClientSide) {

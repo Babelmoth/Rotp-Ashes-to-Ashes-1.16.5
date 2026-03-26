@@ -5,11 +5,9 @@ import com.github.standobyte.jojo.action.ActionConditionResult;
 import com.github.standobyte.jojo.action.ActionTarget;
 import com.github.standobyte.jojo.action.stand.StandAction;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
+import com.github.standobyte.jojo.init.ModStatusEffects;
 import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
 import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-
-import com.github.standobyte.jojo.init.ModStatusEffects;
-
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.SoundEvents;
@@ -105,7 +103,7 @@ public class AshesToAshesMothJet extends StandAction {
                     pool.sync((net.minecraft.entity.player.ServerPlayerEntity) owner);
                 }
                 world.playSound(null, spawnPos.x, spawnPos.y, spawnPos.z,
-                    SoundEvents.BEE_LOOP, SoundCategory.PLAYERS, 0.25f, 1.2f + world.random.nextFloat() * 0.3f);
+                    SoundEvents.FIRECHARGE_USE, SoundCategory.PLAYERS, 0.5f, 1.5f + world.random.nextFloat() * 0.5f);
                 return true;
             })
             .orElse(false);

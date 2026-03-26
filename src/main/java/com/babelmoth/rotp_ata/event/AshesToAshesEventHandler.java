@@ -329,6 +329,7 @@ public class AshesToAshesEventHandler {
         if (victim instanceof FossilMothEntity) {
              FossilMothEntity moth = (FossilMothEntity) victim;
              LivingEntity owner = moth.getOwner();
+             boolean isOwnerSafeKineticDetonation = source.isExplosion() && "ashes_to_ashes_kinetic_detonation".equals(source.getMsgId()) && source.getEntity() == owner;
 
              int totalEnergy = moth.getTotalEnergy();
              int maxEnergy = moth.getMaxEnergy();
@@ -350,7 +351,7 @@ public class AshesToAshesEventHandler {
                   int damage = (int) Math.ceil(event.getAmount());
                   int absorbed = 0;
 
-                  if (totalSpace > 0) {
+                  if (totalSpace > 0 && !isOwnerSafeKineticDetonation) {
                       absorbed = Math.min(damage, totalSpace);
                       moth.setKineticEnergy(moth.getKineticEnergy() + absorbed);
                       damage -= absorbed;
@@ -904,9 +905,14 @@ public class AshesToAshesEventHandler {
         if (!com.babelmoth.rotp_ata.action.ThelaHunGinjeetBlock.isBlocking(target)) return;
 
         IStandPower.getStandPowerOptional(target).ifPresent(power -> {
+            float originalDamage = event.getAmount();
             float reduction = com.babelmoth.rotp_ata.action.ThelaHunGinjeetBlock.getBlockReduction(power, event.getAmount());
             float newDamage = event.getAmount() * (1.0F - reduction);
             event.setAmount(newDamage);
+            if (newDamage < originalDamage) {
+                target.level.playSound(null, target.getX(), target.getY(), target.getZ(),
+                        net.minecraft.util.SoundEvents.ANVIL_LAND, net.minecraft.util.SoundCategory.PLAYERS, 1.0F, 1.0F);
+            }
         });
     }
 
@@ -937,6 +943,9 @@ public class AshesToAshesEventHandler {
         IStandPower.getStandPowerOptional(player).ifPresent(power -> {
             if (power.hasPower() && power.getStandManifestation() instanceof com.github.standobyte.jojo.entity.stand.StandEntity) {
                 double standDmg = ((com.github.standobyte.jojo.entity.stand.StandEntity) power.getStandManifestation()).getAttackDamage();
+                if (power.getResolveLevel() > 0) {
+                    standDmg += 2.0;
+                }
                 mainHand.getOrCreateTag().putDouble("StandScaledDamage", standDmg);
             } else {
 
@@ -1011,6 +1020,40 @@ public class AshesToAshesEventHandler {
                 }
             }
             spear.remove();
+        }
+    }
+
+    @SubscribeEvent
+    public static void onPlayerClone(PlayerEvent.Clone event) {
+        PlayerEntity oldPlayer = event.getOriginal();
+        PlayerEntity newPlayer = event.getPlayer();
+
+        oldPlayer.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(oldPool -> {
+            newPlayer.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(newPool -> {
+                newPool.deserializeNBT(oldPool.serializeNBT());
+                newPool.clearAllDeployed();
+                newPool.setOrbitMothCount(oldPool.getOrbitMothCount());
+                newPool.setShieldMothCount(oldPool.getShieldMothCount());
+                newPool.setSwarmAttackCount(oldPool.getSwarmAttackCount());
+                newPool.setBarrierPassthrough(oldPool.isBarrierPassthrough());
+                newPool.setAutoChargeShield(oldPool.isAutoChargeShield());
+                newPool.setRemoteFollow(oldPool.isRemoteFollow());
+                newPool.setRemoteFollowRatio(oldPool.getRemoteFollowRatio());
+            });
+        });
+
+        net.minecraft.nbt.CompoundNBT oldData = oldPlayer.getPersistentData();
+        net.minecraft.nbt.CompoundNBT newData = newPlayer.getPersistentData();
+        for (String key : oldData.getAllKeys()) {
+            if (key.startsWith("ThelaHunGinjeet")) {
+                newData.put(key, oldData.get(key).copy());
+            }
+        }
+
+        if (event.isWasDeath() && newPlayer instanceof net.minecraft.entity.player.ServerPlayerEntity) {
+            newPlayer.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+                pool.sync((net.minecraft.entity.player.ServerPlayerEntity) newPlayer);
+            });
         }
     }
 

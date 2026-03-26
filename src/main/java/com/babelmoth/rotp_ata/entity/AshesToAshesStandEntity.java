@@ -1,20 +1,27 @@
 package com.babelmoth.rotp_ata.entity;
 
+import com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield;
+import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
+import com.babelmoth.rotp_ata.util.MothQueryUtil;
 import com.github.standobyte.jojo.entity.stand.StandEntity;
 import com.github.standobyte.jojo.entity.stand.StandEntityType;
-import com.babelmoth.rotp_ata.util.MothQueryUtil;
-import com.babelmoth.rotp_ata.util.AshesToAshesConstants;
 import com.github.standobyte.jojo.init.ModStatusEffects;
-import net.minecraft.potion.EffectInstance;
-import net.minecraft.util.DamageSource;
-import java.util.Comparator;
-import java.util.List;
-
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.ai.attributes.AttributeModifier;
+import net.minecraft.entity.ai.attributes.Attributes;
+import net.minecraft.entity.ai.attributes.ModifiableAttributeInstance;
+import net.minecraft.potion.EffectInstance;
+import net.minecraft.util.DamageSource;
 import net.minecraft.world.World;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.UUID;
+
 public class AshesToAshesStandEntity extends StandEntity {
+
+    private static final UUID SHIELD_SLOW_UUID = UUID.fromString("d7b79db8-58b9-46f0-9b9b-0dd6d43bcfe1");
 
     private boolean mothsSpawned = false;
     private static final int MOTH_COUNT = AshesToAshesConstants.DEFAULT_MOTH_COUNT;
@@ -31,35 +38,36 @@ public class AshesToAshesStandEntity extends StandEntity {
         }
         return base;
     }
+
     private int replenishTimer = 0;
     private boolean poolDataChanged = false;
-
     private final java.util.Deque<FossilMothEntity> deployedMoths = new java.util.ArrayDeque<>();
+    private static final float LEAP_STRENGTH = 2.5F;
+    private static final double LEAP_BASE_STRENGTH = 2.5D;
     private boolean wasUserLeaping = false;
 
     @Override
     public float getLeapStrength() {
-
-        if (getGlobalTotalEnergy() >= 5 && getGlobalTotalMoths() >= 1) {
-            return 6.0f;
+        if (canLeapWithMoths()) {
+            return LEAP_STRENGTH;
         }
-        return 0.0f;
+        return 0.0F;
     }
 
     public int getGlobalKineticEnergy() {
         LivingEntity user = getUser();
         if (user == null) return 0;
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
-            .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalKineticEnergy)
-            .orElse(0);
+                .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalKineticEnergy)
+                .orElse(0);
     }
 
     public int getGlobalHamonEnergy() {
         LivingEntity user = getUser();
         if (user == null) return 0;
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
-            .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalHamonEnergy)
-            .orElse(0);
+                .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalHamonEnergy)
+                .orElse(0);
     }
 
     public int getGlobalTotalEnergy() {
@@ -70,8 +78,8 @@ public class AshesToAshesStandEntity extends StandEntity {
         LivingEntity user = getUser();
         if (user == null) return 0;
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
-            .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalMoths)
-            .orElse(0);
+                .map(com.babelmoth.rotp_ata.capability.IMothPool::getTotalMoths)
+                .orElse(0);
     }
 
     public AshesToAshesStandEntity(StandEntityType<AshesToAshesStandEntity> type, World world) {
@@ -109,20 +117,21 @@ public class AshesToAshesStandEntity extends StandEntity {
             if (replenishTimer >= 20) {
                 replenishTimer = 0;
                 replenishMoths();
-
                 recallExcessMoths();
             }
 
-            boolean shouldSync = poolDataChanged
-                || this.tickCount <= 1
-                || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0;
-            if (shouldSync) {
-                user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                    if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
-                        pool.sync((net.minecraft.entity.player.ServerPlayerEntity)user);
-                    }
-                });
-                poolDataChanged = false;
+            if (user != null) {
+                boolean shouldSync = poolDataChanged
+                        || this.tickCount <= 1
+                        || this.tickCount % AshesToAshesConstants.SYNC_INTERVAL_TICKS == 0;
+                if (shouldSync) {
+                    user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
+                        if (user instanceof net.minecraft.entity.player.ServerPlayerEntity) {
+                            pool.sync((net.minecraft.entity.player.ServerPlayerEntity) user);
+                        }
+                    });
+                    poolDataChanged = false;
+                }
             }
 
             tickShieldLogic();
@@ -149,7 +158,6 @@ public class AshesToAshesStandEntity extends StandEntity {
         if (user == null || !this.isAlive()) return;
 
         int currentSwarmSize = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM).size();
-
         int targetCount = getTargetMothCount();
         if (currentSwarmSize < targetCount) {
             user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
@@ -158,13 +166,11 @@ public class AshesToAshesStandEntity extends StandEntity {
 
                 for (int i = 0; i < toSpawn; i++) {
                     int slot = pool.allocateSlotWithPriority(true);
-
                     if (slot == -1) {
-                        pool.clearAllDeployed();
-                        slot = pool.allocateSlotWithPriority(true);
+                        break;
                     }
 
-                    if (slot != -1 && level != null) {
+                    if (level != null) {
                         FossilMothEntity moth = new FossilMothEntity(level, user);
                         moth.setMothPoolIndex(slot);
                         moth.setPos(user.getX(), user.getY() + 1.0, user.getZ());
@@ -179,7 +185,6 @@ public class AshesToAshesStandEntity extends StandEntity {
     private void spawnFossilMoths() {
         LivingEntity user = getUser();
         if (user == null) return;
-
         FossilMothEntity.spawnMothsForUser(level, user, getTargetMothCount());
     }
 
@@ -212,43 +217,41 @@ public class AshesToAshesStandEntity extends StandEntity {
 
     private void tickShieldLogic() {
         LivingEntity user = getUser();
-        if (user != null && !com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.isShieldEnabled(user)) {
-            isShieldActive = false;
-            return;
-        }
-        if (!isShieldActive) return;
         if (user == null) {
             isShieldActive = false;
             return;
         }
+        if (!AshesToAshesSwarmShield.isShieldEnabled(user)) {
+            isShieldActive = false;
+            removeShieldSlowModifier(user);
+            return;
+        }
+        if (!isShieldActive) {
+            removeShieldSlowModifier(user);
+            return;
+        }
 
-        java.util.List<FossilMothEntity> shieldMoths = MothQueryUtil.getShieldMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
-        int shieldCount = shieldMoths.size();
-
-        int targetShieldCount = getShieldMothCountConfig();
-        if (shieldCount < targetShieldCount) {
-            java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMoths(user, AshesToAshesConstants.QUERY_RADIUS_SWARM);
-            int toRecruit = Math.min(targetShieldCount - shieldCount, freeMoths.size());
-            for (int i = 0; i < toRecruit; i++) {
-                FossilMothEntity moth = freeMoths.get(i);
-                moth.setShieldTarget(user, true);
-                moth.setIsShieldMoth(true);
-                moth.detach();
-            }
+        List<FossilMothEntity> shieldMoths = MothQueryUtil.getShieldMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        if (shieldMoths.isEmpty()) {
+            removeShieldSlowModifier(user);
+            return;
         }
 
         for (FossilMothEntity moth : shieldMoths) {
             moth.refreshShield();
         }
 
-        if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity)user).isCreative()) {
-             com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity)user).ifPresent(power -> {
-                 power.consumeStamina(0.5F);
-                 if (power.getStamina() <= 0) {
-                     com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
-                     isShieldActive = false;
-                 }
-             });
+        applyShieldSlowModifier(user);
+
+        if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity) user).isCreative()) {
+            com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity) user).ifPresent(power -> {
+                power.consumeStamina(0.045F * shieldMoths.size());
+                if (power.getStamina() <= 0) {
+                    AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
+                    removeShieldSlowModifier(user);
+                    isShieldActive = false;
+                }
+            });
         }
     }
 
@@ -256,7 +259,7 @@ public class AshesToAshesStandEntity extends StandEntity {
         LivingEntity user = getUser();
         if (user == null) return;
 
-        java.util.List<FossilMothEntity> guardianMoths = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
+        List<FossilMothEntity> guardianMoths = MothQueryUtil.getGuardianMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
         int guardianCount = guardianMoths.size();
         if (guardianCount == 0) return;
 
@@ -270,31 +273,41 @@ public class AshesToAshesStandEntity extends StandEntity {
         }
 
         if (guardianTarget == null) {
-            for (FossilMothEntity moth : guardianMoths) {
-                moth.setShieldTarget(null);
-            }
+            clearGuardianTargets(guardianMoths);
             return;
-        }
-
-        int targetGuardianCount = getGuardianMothCountConfig();
-        if (guardianCount < targetGuardianCount) {
-            Entity nearestSide = user;
-            if (this.isAlive() && guardianTarget.distanceToSqr(this) < guardianTarget.distanceToSqr(user)) {
-                nearestSide = this;
-            }
-
-            java.util.List<FossilMothEntity> freeMoths = MothQueryUtil.getFreeMothsAround(user, nearestSide, AshesToAshesConstants.QUERY_RADIUS_SWARM);
-            int toRecruit = Math.min(targetGuardianCount - guardianCount, freeMoths.size());
-            for (int i = 0; i < toRecruit; i++) {
-                FossilMothEntity moth = freeMoths.get(i);
-                moth.setShieldTarget(guardianTarget, true);
-                moth.setIsShieldMoth(false);
-                moth.detach();
-            }
         }
 
         for (FossilMothEntity moth : guardianMoths) {
             moth.refreshShield();
+        }
+
+        if (user instanceof net.minecraft.entity.player.PlayerEntity && !((net.minecraft.entity.player.PlayerEntity) user).isCreative()) {
+            com.github.standobyte.jojo.power.impl.stand.IStandPower.getStandPowerOptional((net.minecraft.entity.player.PlayerEntity) user).ifPresent(power -> {
+                power.consumeStamina(0.012F * guardianCount);
+                if (power.getStamina() <= 0) {
+                    clearGuardianTargets(guardianMoths);
+                }
+            });
+        }
+    }
+
+    private void clearGuardianTargets(List<FossilMothEntity> guardianMoths) {
+        for (FossilMothEntity moth : guardianMoths) {
+            moth.setShieldTarget(null);
+        }
+    }
+
+    private void applyShieldSlowModifier(LivingEntity user) {
+        ModifiableAttributeInstance speed = user.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null && speed.getModifier(SHIELD_SLOW_UUID) == null) {
+            speed.addTransientModifier(new AttributeModifier(SHIELD_SLOW_UUID, "Swarm shield slow", -0.45D, AttributeModifier.Operation.MULTIPLY_TOTAL));
+        }
+    }
+
+    private void removeShieldSlowModifier(LivingEntity user) {
+        ModifiableAttributeInstance speed = user.getAttribute(Attributes.MOVEMENT_SPEED);
+        if (speed != null) {
+            speed.removeModifier(SHIELD_SLOW_UUID);
         }
     }
 
@@ -305,7 +318,8 @@ public class AshesToAshesStandEntity extends StandEntity {
         if (!level.isClientSide) {
             LivingEntity user = getUser();
             if (user != null) {
-                com.babelmoth.rotp_ata.action.AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
+                removeShieldSlowModifier(user);
+                AshesToAshesSwarmShield.turnOffShieldForUser(level, user);
                 List<FossilMothEntity> activeMoths = MothQueryUtil.getOwnerMoths(user, AshesToAshesConstants.QUERY_RADIUS_GUARDIAN);
                 for (FossilMothEntity moth : activeMoths) {
                     moth.recall();
@@ -388,8 +402,8 @@ public class AshesToAshesStandEntity extends StandEntity {
         if (user == null) return false;
 
         return user.getCapability(com.babelmoth.rotp_ata.capability.MothPoolProvider.MOTH_POOL_CAPABILITY)
-            .map(pool -> pool.consumeMoths(count))
-            .orElse(false);
+                .map(pool -> pool.consumeMoths(count))
+                .orElse(false);
     }
 
     public boolean consumeGlobalEnergy(int amount) {
@@ -403,9 +417,13 @@ public class AshesToAshesStandEntity extends StandEntity {
         }).orElse(false);
     }
 
+    private boolean canLeapWithMoths() {
+        return getGlobalTotalEnergy() >= 5 && getGlobalTotalMoths() >= 1;
+    }
+
     @Override
     protected double leapBaseStrength() {
-        return super.leapBaseStrength();
+        return LEAP_BASE_STRENGTH;
     }
 
     @Override

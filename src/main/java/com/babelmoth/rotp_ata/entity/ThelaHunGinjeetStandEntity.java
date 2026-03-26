@@ -161,7 +161,7 @@ public class ThelaHunGinjeetStandEntity extends StandEntity {
     private boolean hasThrownSpear(PlayerEntity user) {
         AxisAlignedBB box = user.getBoundingBox().inflate(128.0);
         for (ThelaHunGinjeetSpearEntity spear : user.level.getEntitiesOfClass(ThelaHunGinjeetSpearEntity.class, box,
-                e -> e.isAlive() && user.equals(e.getOwner()))) {
+                e -> e.isAlive() && !e.isBurstMode() && user.equals(e.getOwner()))) {
             ItemStack pickup = spear.getSpearItem();
             if (!pickup.isEmpty() && pickup.getItem() == InitItems.THELA_HUN_GINJEET_SPEAR.get()) {
                 return true;

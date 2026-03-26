@@ -25,4 +25,7 @@ public class InitSounds {
 
     public static final OstSoundList ASHES_TO_ASHES_OST = new OstSoundList(
             new ResourceLocation(AddonMain.MOD_ID, "ashes_to_ashes_ost"), SOUNDS);
+
+    public static final RegistryObject<SoundEvent> DHARMA_WHEEL_SPIN = SOUNDS.register("wheel_spin",
+            () -> new SoundEvent(new ResourceLocation(AddonMain.MOD_ID, "wheel_spin")));
 }

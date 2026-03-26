@@ -25,7 +25,7 @@ import java.util.List;
 
 public class ThelaHunGinjeetSweep extends StandAction {
     private static final float BASE_SWEEP_DAMAGE = 5.0F;
-    private static final double SWEEP_RANGE = 4.0;
+    private static final double SWEEP_RANGE = 3.0;
     private static final double SWEEP_ANGLE = 120.0;
     private static final float KNOCKBACK_STRENGTH = 0.6F;
     private static final float STAMINA_COST = 150.0F;

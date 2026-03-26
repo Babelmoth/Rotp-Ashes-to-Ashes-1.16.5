@@ -49,6 +49,11 @@ public class MothPool implements IMothPool {
     }
 
     @Override
+    public int getAvailableSlotCount() {
+        return Math.max(0, MAX_MOTHS - deployedSlots.cardinality());
+    }
+
+    @Override
     public int getMothKinetic(int index) {
         if (index >= 0 && index < MAX_MOTHS && occupiedSlots.get(index)) return kineticPool[index];
         return 0;

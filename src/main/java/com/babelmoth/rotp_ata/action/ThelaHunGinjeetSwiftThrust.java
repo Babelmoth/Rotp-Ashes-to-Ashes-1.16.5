@@ -31,8 +31,9 @@ import java.util.Set;
 
 public class ThelaHunGinjeetSwiftThrust extends StandAction {
     private static final float BASE_THRUST_DAMAGE = 5.0F;
-    private static final double THRUST_DISTANCE = 10.0;
-    private static final double HIT_RADIUS = 1.5;
+    private static final double THRUST_DISTANCE = 6.0;
+    private static final double HIT_RADIUS = 1.2;
+    private static final double RESOLVE_BONUS_DISTANCE = 1.5;
     private static final int THRUST_STEPS = 6;
     private static final float STAMINA_COST = 200.0F;
 
@@ -103,11 +104,16 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
         Vector3d lookVec = user.getLookAngle();
         Vector3d startPos = user.position().add(0, user.getBbHeight() * 0.5, 0);
 
+        double thrustDist = THRUST_DISTANCE;
+        if (power.getResolveLevel() > 0) {
+            thrustDist += RESOLVE_BONUS_DISTANCE;
+        }
+
         Set<Integer> hitEntities = new HashSet<>();
 
         for (int step = 1; step <= THRUST_STEPS; step++) {
             double progress = (double) step / THRUST_STEPS;
-            Vector3d checkPos = startPos.add(lookVec.scale(THRUST_DISTANCE * progress));
+            Vector3d checkPos = startPos.add(lookVec.scale(thrustDist * progress));
 
             AxisAlignedBB hitBox = new AxisAlignedBB(
                     checkPos.x - HIT_RADIUS, checkPos.y - 0.5, checkPos.z - HIT_RADIUS,
@@ -135,7 +141,7 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
             }
         }
 
-        Vector3d motion = lookVec.scale(THRUST_DISTANCE * 0.15);
+        Vector3d motion = lookVec.scale(thrustDist * 0.15);
         user.setDeltaMovement(motion.x, motion.y, motion.z);
         user.hurtMarked = true;
 
@@ -157,6 +163,9 @@ public class ThelaHunGinjeetSwiftThrust extends StandAction {
         Set<Integer> hitEntities = new HashSet<>();
 
         double riptideDistance = THRUST_DISTANCE * (1.0 + riptideLevel * 0.2);
+        if (power.getResolveLevel() > 0) {
+            riptideDistance += RESOLVE_BONUS_DISTANCE;
+        }
         double riptideRadius = HIT_RADIUS * 2.0;
 
         for (int step = 1; step <= THRUST_STEPS; step++) {

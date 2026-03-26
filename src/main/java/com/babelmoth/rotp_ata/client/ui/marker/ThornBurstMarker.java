@@ -3,6 +3,7 @@ package com.babelmoth.rotp_ata.client.ui.marker;
 import java.util.List;
 import java.util.Optional;
 
+import com.babelmoth.rotp_ata.action.ThelaHunGinjeetThornBurst;
 import com.babelmoth.rotp_ata.AddonMain;
 import com.babelmoth.rotp_ata.capability.SpearStuckProvider;
 import com.babelmoth.rotp_ata.capability.SpearThornProvider;
@@ -31,6 +32,14 @@ public class ThornBurstMarker extends MarkerRenderer {
     @Override
     protected void updatePositions(List<MarkerInstance> list, float partialTick) {
         if (mc.player == null || mc.level == null) return;
+
+        for (com.babelmoth.rotp_ata.entity.ThelaHunGinjeetSpearEntity spear : ThelaHunGinjeetThornBurst.findPendingLivingBlockSpears(mc.player)) {
+            list.add(new MarkerInstance(
+                    spear.getPosition(partialTick).add(0, 0.5, 0),
+                    true,
+                    Optional.empty()
+            ));
+        }
 
         for (Entity entity : mc.level.entitiesForRendering()) {
             if (!(entity instanceof LivingEntity)) continue;

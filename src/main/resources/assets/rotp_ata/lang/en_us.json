@@ -1,6 +1,8 @@
 {
   "jojo.story_part.original_stands": "Original Stands",
+
   "stand.rotp_ata.ashes_to_ashes": "Ashes to Ashes",
+  "entity.rotp_ata.ashes_to_ashes": "Ashes to Ashes",
   "entity.rotp_ata.fossil_moth": "Fossil Moth",
   "action.rotp_ata.ashes_to_ashes_adhesion": "Adhesion",
   "action.rotp_ata.ashes_to_ashes_kinetic_adhesion": "Kinetic Adhesion",
@@ -19,10 +21,13 @@
   "action.rotp_ata.ashes_to_ashes_frozen_barrier": "Stasis Barrier",
   "action.rotp_ata.ashes_to_ashes_remove_barrier": "Remove Barrier",
   "action.rotp_ata.ashes_to_ashes_swarm_config": "Swarm Config",
+  "action.rotp_ata.ashes_to_ashes_moth_charge": "Moth Charge",
+  "action.rotp_ata.ashes_to_ashes_swarm_charge": "Swarm Charge",
 
-  "rotp_ata.screen.moth_config.title": "Ashes to Ashes - Swarm Config",
+  "rotp_ata.screen.moth_config.title": "Ashes to Ashes Config",
   "rotp_ata.screen.moth_config.close": "Close",
   "rotp_ata.screen.moth_config.total": "\u25c8 Total Moths",
+  "rotp_ata.screen.moth_config.loss": "\u25c8 Lost Moths",
   "rotp_ata.screen.moth_config.active": "\u25c8 Active Moths",
   "rotp_ata.screen.moth_config.reserve": "\u25c8 Reserve Moths",
   "rotp_ata.screen.moth_config.kinetic": "\u25c8 Kinetic Energy",
@@ -48,7 +53,11 @@
   "action.rotp_ata.thela_hun_ginjeet_grab_dash": "Railing Dash",
   "action.rotp_ata.thela_hun_ginjeet_thorn_burst": "Thorn Burst",
   "item.rotp_ata.thela_hun_ginjeet_spear": "Thela Hun Ginjeet",
-
+  
+  "stand.rotp_ata.dharma_chakra": "Dharma Chakra",
+  "subtitles.rotp_ata.wheel_spin": "Wheel spins",
+  "jojo.message.dharma_chakra_needs_full_stamina": "Stamina must be full to summon stand",
+  
   "block.rotp_ata.frozen_barrier": "Stasis Barrier",
   "jojo.ata.message.requires_momentum": "You need momentum reserves to use this action.",
   "jojo.ata.message.requires_stand_summoned": "Stand must be summoned",
@@ -56,15 +65,15 @@
   "jojo.ata.message.need_target": "Need target",
   "jojo.ata.message.no_moths_available": "No moths available",
   "jojo.ata.message.no_remote_control": "Cannot use in remote control",
-  "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy; cannot place.",
+  "jojo.ata.message.kinetic_insufficient": "Insufficient kinetic energy",
 
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.title": "Development S",
   "advancements.rotp_ata.thela_hun_ginjeet_enchant.description": "Enchant your Stand to over unleash its power",
 
-  "death.attack.stand.spear": "%1$s was impaled by a Stand spear",
-  "death.attack.stand.spear.player": "%1$s was impaled by %2$s's Stand spear",
-  "death.attack.stand.spear_thrust": "%1$s was pierced by a swift thrust",
-  "death.attack.stand.spear_thrust.player": "%1$s was pierced by %2$s's swift thrust",
+  "death.attack.stand.spear": "%1$s was struck down by spear",
+  "death.attack.stand.spear.player": "%1$s was struck down by %2$s's Stand spear",
+  "death.attack.stand.spear_thrust": "%1$s was pierced.",
+  "death.attack.stand.spear_thrust.player": "%1$s was pierced by %2$s",
   "death.attack.stand.spear_riptide": "%1$s was swept away by a riptide thrust",
   "death.attack.stand.spear_riptide.player": "%1$s was swept away by %2$s's riptide thrust",
   "death.attack.stand.spear_sweep": "%1$s was struck down by a sweeping spear",

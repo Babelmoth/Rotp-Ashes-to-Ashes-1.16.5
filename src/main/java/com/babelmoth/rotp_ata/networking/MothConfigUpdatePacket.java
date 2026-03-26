@@ -50,13 +50,13 @@ public class MothConfigUpdatePacket {
             ServerPlayerEntity player = ctx.get().getSender();
             if (player != null) {
                 player.getCapability(MothPoolProvider.MOTH_POOL_CAPABILITY).ifPresent(pool -> {
-                    pool.setOrbitMothCount(msg.orbitCount);
-                    pool.setShieldMothCount(msg.shieldCount);
-                    pool.setSwarmAttackCount(msg.swarmCount);
+                    pool.setOrbitMothCount(Math.max(0, Math.min(msg.orbitCount, 100)));
+                    pool.setShieldMothCount(Math.max(0, Math.min(msg.shieldCount, 100)));
+                    pool.setSwarmAttackCount(Math.max(0, Math.min(msg.swarmCount, 100)));
                     pool.setBarrierPassthrough(msg.barrierPassthrough);
                     pool.setAutoChargeShield(msg.autoChargeShield);
                     pool.setRemoteFollow(msg.remoteFollow);
-                    pool.setRemoteFollowRatio(msg.remoteFollowRatio);
+                    pool.setRemoteFollowRatio(Math.max(0, Math.min(msg.remoteFollowRatio, 100)));
                     pool.sync(player);
                 });
             }

@@ -4,8 +4,8 @@ import com.babelmoth.rotp_ata.capability.IMothPool;
 import com.babelmoth.rotp_ata.capability.MothPoolProvider;
 import com.babelmoth.rotp_ata.networking.AshesToAshesPacketHandler;
 import com.babelmoth.rotp_ata.networking.MothConfigUpdatePacket;
-import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 import com.babelmoth.rotp_ata.util.MothQueryUtil;
+import com.github.standobyte.jojo.power.impl.stand.IStandPower;
 import com.mojang.blaze3d.matrix.MatrixStack;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.MainWindow;
@@ -31,18 +31,20 @@ public class MothConfigScreen extends Screen {
     private static final int WINDOW_HEIGHT = 227;
     private static final int WINDOW_THIN_BORDER = 9;
     private static final int WINDOW_UPPER_BORDER = 18;
-
     private static final int CONTENT_W = WINDOW_WIDTH - WINDOW_THIN_BORDER * 2;
     private static final int CONTENT_H = WINDOW_HEIGHT - WINDOW_UPPER_BORDER - WINDOW_THIN_BORDER;
+    private static final int CONTROL_HEIGHT = 14;
+    private static final int INFO_LINE_HEIGHT = 13;
+    private static final int INFO_LINE_COUNT = 6;
 
     private static final int COL_TITLE = 0xFFD4AA55;
-    private static final int COL_TEXT  = 0xFFFFFFFF;
-    private static final int COL_DIM   = 0xFFAAAAAA;
-    private static final int COL_SEP   = 0xFF5A4A35;
+    private static final int COL_TEXT = 0xFFFFFFFF;
+    private static final int COL_DIM = 0xFFAAAAAA;
+    private static final int COL_SEP = 0xFF5A4A35;
 
-    private static final int[] ORBIT_MAX  = {20, 30, 40, 50};
-    private static final int[] SHIELD_MAX = { 5, 10, 15, 20};
-    private static final int[] SWARM_MAX  = {30, 50, 75, 100};
+    private static final int[] ORBIT_MAX = {20, 30, 40, 50};
+    private static final int[] SHIELD_MAX = {5, 10, 15, 20};
+    private static final int[] SWARM_MAX = {30, 50, 75, 100};
 
     private IMothPool pool;
     private int orbitCount, shieldCount, swarmCount;
@@ -54,7 +56,9 @@ public class MothConfigScreen extends Screen {
     private int totalContentHeight = 0;
     private final List<ScrollableWidget> scrollableWidgets = new ArrayList<>();
 
-    private VanillaSlider orbitSlider, shieldSlider, swarmSlider;
+    private VanillaSlider orbitSlider;
+    private VanillaSlider shieldSlider;
+    private VanillaSlider swarmSlider;
     private VanillaSlider followRatioSlider;
     private VanillaToggle remoteFollowToggle;
 
@@ -62,12 +66,44 @@ public class MothConfigScreen extends Screen {
         super(new TranslationTextComponent("rotp_ata.screen.moth_config.title"));
     }
 
-    private int windowX() { return (this.width - WINDOW_WIDTH) / 2; }
-    private int windowY() { return (this.height - WINDOW_HEIGHT) / 2; }
+    private int windowX() {
+        return (this.width - WINDOW_WIDTH) / 2;
+    }
 
-    private int getOrbitMax() { return ORBIT_MAX[Math.min(resolveLevel, 3)]; }
-    private int getShieldMax() { return SHIELD_MAX[Math.min(resolveLevel, 3)]; }
-    private int getSwarmMax() { return SWARM_MAX[Math.min(resolveLevel, 3)]; }
+    private int windowY() {
+        return (this.height - WINDOW_HEIGHT) / 2;
+    }
+
+    private int getOrbitMax() {
+        return ORBIT_MAX[Math.min(resolveLevel, 3)];
+    }
+
+    private int getShieldMax() {
+        return SHIELD_MAX[Math.min(resolveLevel, 3)];
+    }
+
+    private int getSwarmMax() {
+        return SWARM_MAX[Math.min(resolveLevel, 3)];
+    }
+
+    private int getMaxMoths() {
+        switch (resolveLevel) {
+            case 0:
+                return 300;
+            case 1:
+                return 350;
+            case 2:
+                return 400;
+            case 3:
+                return 450;
+            default:
+                return 500;
+        }
+    }
+
+    private int getConfigStartOffset() {
+        return 4 + INFO_LINE_COUNT * INFO_LINE_HEIGHT + 6 + 16 + 4;
+    }
 
     @Override
     protected void init() {
@@ -89,7 +125,8 @@ public class MothConfigScreen extends Screen {
             });
 
             resolveLevel = IStandPower.getStandPowerOptional(mc.player)
-                    .map(IStandPower::getResolveLevel).orElse(0);
+                    .map(IStandPower::getResolveLevel)
+                    .orElse(0);
         }
 
         orbitCount = MathHelper.clamp(orbitCount, 5, getOrbitMax());
@@ -97,68 +134,70 @@ public class MothConfigScreen extends Screen {
         swarmCount = MathHelper.clamp(swarmCount, 1, getSwarmMax());
 
         int contentTop = windowY() + WINDOW_UPPER_BORDER;
-        int contentLeft = windowX() + WINDOW_THIN_BORDER + 4;
         int contentRight = windowX() + WINDOW_WIDTH - WINDOW_THIN_BORDER - 4;
         int sliderW = 90;
         int sliderX = contentRight - sliderW;
+        int yOff = getConfigStartOffset();
 
-        int yOff = 4;
-
-        yOff += 6 * 13;
-        yOff += 6;
-
-        yOff += 16;
-        yOff += 4;
-
-        orbitSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
-                5, getOrbitMax(), orbitCount, val -> { orbitCount = val; sendConfigUpdate(); });
+        orbitSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
+                5, getOrbitMax(), orbitCount, val -> {
+            orbitCount = val;
+            sendConfigUpdate();
+        });
         addButton(orbitSlider);
         scrollableWidgets.add(new ScrollableWidget(orbitSlider, yOff));
         yOff += 20;
 
-        shieldSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
-                1, getShieldMax(), shieldCount, val -> { shieldCount = val; sendConfigUpdate(); });
+        shieldSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
+                1, getShieldMax(), shieldCount, val -> {
+            shieldCount = val;
+            sendConfigUpdate();
+        });
         addButton(shieldSlider);
         scrollableWidgets.add(new ScrollableWidget(shieldSlider, yOff));
         yOff += 20;
 
-        swarmSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
-                1, getSwarmMax(), swarmCount, true, val -> { swarmCount = val; sendConfigUpdate(); });
+        swarmSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
+                1, getSwarmMax(), swarmCount, true, val -> {
+            swarmCount = val;
+            sendConfigUpdate();
+        });
         addButton(swarmSlider);
         scrollableWidgets.add(new ScrollableWidget(swarmSlider, yOff));
         yOff += 22;
 
-        VanillaToggle barrierToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
-                barrierPassthrough, val -> { barrierPassthrough = val; sendConfigUpdate(); });
+        VanillaToggle barrierToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
+                barrierPassthrough, val -> {
+            barrierPassthrough = val;
+            sendConfigUpdate();
+        });
         addButton(barrierToggle);
         scrollableWidgets.add(new ScrollableWidget(barrierToggle, yOff));
-        yOff += 20;
-
-        VanillaToggle chargeToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
-                autoChargeShield, val -> { autoChargeShield = val; sendConfigUpdate(); });
-        addButton(chargeToggle);
-        scrollableWidgets.add(new ScrollableWidget(chargeToggle, yOff));
         yOff += 22;
 
-        remoteFollowToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, 14,
+        remoteFollowToggle = new VanillaToggle(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
                 remoteFollow, val -> {
             remoteFollow = val;
-            if (followRatioSlider != null) followRatioSlider.visible = val;
+            if (followRatioSlider != null) {
+                followRatioSlider.visible = val;
+            }
             sendConfigUpdate();
         });
         addButton(remoteFollowToggle);
         scrollableWidgets.add(new ScrollableWidget(remoteFollowToggle, yOff));
         yOff += 20;
 
-        followRatioSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, 14,
-                0, 100, remoteFollowRatio, true, val -> { remoteFollowRatio = val; sendConfigUpdate(); });
+        followRatioSlider = new VanillaSlider(sliderX, contentTop + yOff, sliderW, CONTROL_HEIGHT,
+                0, 100, remoteFollowRatio, true, val -> {
+            remoteFollowRatio = val;
+            sendConfigUpdate();
+        });
         followRatioSlider.visible = remoteFollow;
         addButton(followRatioSlider);
         scrollableWidgets.add(new ScrollableWidget(followRatioSlider, yOff));
         yOff += 22;
 
         totalContentHeight = yOff + 10;
-
         updateWidgetPositions();
     }
 
@@ -219,34 +258,38 @@ public class MothConfigScreen extends Screen {
         enableScissor(contentLeft, contentTop, contentLeft + CONTENT_W, contentBottom);
 
         int intScroll = MathHelper.floor(scrollY);
-
         int y = contentTop + 4 + intScroll;
-        int lineH = 13;
 
         if (pool != null && this.minecraft.player != null) {
-            int totalMoths = pool.getTotalMoths();
+            int maxMoths = getMaxMoths();
             int deployed = MothQueryUtil.getOwnerMoths(this.minecraft.player, 128.0).size();
-            int reserve = totalMoths - deployed;
+            int lostMoths = Math.max(0, maxMoths - pool.getTotalMoths());
             int kinetic = pool.getTotalKineticEnergy();
             int hamon = pool.getTotalHamonEnergy();
 
-            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.total", String.valueOf(totalMoths)); y += lineH;
-            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.active", String.valueOf(deployed)); y += lineH;
-            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.reserve", String.valueOf(reserve)); y += lineH;
-            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.kinetic", String.valueOf(kinetic)); y += lineH;
-            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.hamon", String.valueOf(hamon)); y += lineH;
+            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.total", String.valueOf(maxMoths));
+            y += INFO_LINE_HEIGHT;
+            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.active", String.valueOf(deployed));
+            y += INFO_LINE_HEIGHT;
+            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.reserve", String.valueOf(lostMoths));
+            y += INFO_LINE_HEIGHT;
+            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.kinetic", String.valueOf(kinetic));
+            y += INFO_LINE_HEIGHT;
+            drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.hamon", String.valueOf(hamon));
+            y += INFO_LINE_HEIGHT;
 
             String resolveName = resolveLevel == 0 ? "---" : ("Lv." + resolveLevel);
             drawInfoLine(ms, cLeft, cRight, y, "rotp_ata.screen.moth_config.resolve", resolveName);
+            y += INFO_LINE_HEIGHT;
         }
 
-        int sepY = contentTop + 84 + intScroll;
+        int sepY = y + 2;
         hLine(ms, cLeft, cRight, sepY, COL_SEP);
         drawCenteredString(ms, this.font,
                 new TranslationTextComponent("rotp_ata.screen.moth_config.settings"),
                 cx, sepY + 4, COL_TITLE);
 
-        int configY = contentTop + 104 + intScroll;
+        int configY = sepY + 20;
 
         drawString(ms, this.font, new TranslationTextComponent("rotp_ata.screen.moth_config.orbit"),
                 cLeft, configY + 3, COL_TEXT);
@@ -258,9 +301,6 @@ public class MothConfigScreen extends Screen {
                 cLeft, configY + 3, COL_TEXT);
         configY += 22;
         drawString(ms, this.font, new TranslationTextComponent("rotp_ata.screen.moth_config.barrier"),
-                cLeft, configY + 3, COL_TEXT);
-        configY += 20;
-        drawString(ms, this.font, new TranslationTextComponent("rotp_ata.screen.moth_config.auto_charge"),
                 cLeft, configY + 3, COL_TEXT);
         configY += 22;
         drawString(ms, this.font, new TranslationTextComponent("rotp_ata.screen.moth_config.remote_follow"),
@@ -278,8 +318,7 @@ public class MothConfigScreen extends Screen {
         disableScissor();
     }
 
-    private void drawInfoLine(MatrixStack ms, int labelX, int valueX, int y,
-                              String translationKey, String valueStr) {
+    private void drawInfoLine(MatrixStack ms, int labelX, int valueX, int y, String translationKey, String valueStr) {
         drawString(ms, this.font, new TranslationTextComponent(translationKey), labelX, y, COL_TEXT);
         int w = this.font.width(valueStr);
         drawString(ms, this.font, valueStr, valueX - w, y, COL_TEXT);
@@ -293,10 +332,10 @@ public class MothConfigScreen extends Screen {
     private void enableScissor(int x1, int y1, int x2, int y2) {
         MainWindow window = Minecraft.getInstance().getWindow();
         double scale = window.getGuiScale();
-        int sx = (int)(x1 * scale);
-        int sy = (int)((window.getGuiScaledHeight() - y2) * scale);
-        int sw = (int)((x2 - x1) * scale);
-        int sh = (int)((y2 - y1) * scale);
+        int sx = (int) (x1 * scale);
+        int sy = (int) ((window.getGuiScaledHeight() - y2) * scale);
+        int sw = (int) ((x2 - x1) * scale);
+        int sh = (int) ((y2 - y1) * scale);
         RenderSystem.enableScissor(sx, sy, sw, sh);
     }
 
@@ -307,6 +346,7 @@ public class MothConfigScreen extends Screen {
     private static class ScrollableWidget {
         final Widget widget;
         final int baseOffsetY;
+
         ScrollableWidget(Widget widget, int baseOffsetY) {
             this.widget = widget;
             this.baseOffsetY = baseOffsetY;
@@ -315,7 +355,7 @@ public class MothConfigScreen extends Screen {
 
     public static class VanillaSlider extends Widget {
         private final int minVal;
-        private int maxVal;
+        private final int maxVal;
         private int currentVal;
         private double sliderPos;
         private boolean dragging = false;
@@ -333,7 +373,7 @@ public class MothConfigScreen extends Screen {
             this.minVal = minVal;
             this.maxVal = maxVal;
             this.currentVal = MathHelper.clamp(currentVal, minVal, maxVal);
-            this.sliderPos = (maxVal > minVal) ? (double)(this.currentVal - minVal) / (maxVal - minVal) : 0;
+            this.sliderPos = maxVal > minVal ? (double) (this.currentVal - minVal) / (maxVal - minVal) : 0;
             this.onChange = onChange;
             this.showPercent = showPercent;
         }
@@ -353,7 +393,7 @@ public class MothConfigScreen extends Screen {
             blit(ms, x + width / 2, y + halfH, 200 - width / 2, 46 + texFullH - (height - halfH), width / 2, height - halfH);
 
             int handleW = 8;
-            int handleX = x + (int)(sliderPos * (width - handleW));
+            int handleX = x + (int) (sliderPos * (width - handleW));
             int handleTexY = this.isHovered() ? 86 : 66;
             blit(ms, handleX, y, 0, handleTexY, handleW / 2, halfH);
             blit(ms, handleX + handleW / 2, y, 200 - handleW / 2, handleTexY, handleW / 2, halfH);
@@ -374,7 +414,9 @@ public class MothConfigScreen extends Screen {
 
         @Override
         protected void onDrag(double mouseX, double mouseY, double dragX, double dragY) {
-            if (dragging) updateSliderFromMouse(mouseX);
+            if (dragging) {
+                updateSliderFromMouse(mouseX);
+            }
         }
 
         @Override
@@ -385,13 +427,13 @@ public class MothConfigScreen extends Screen {
         private void updateSliderFromMouse(double mouseX) {
             int handleW = 8;
             sliderPos = MathHelper.clamp((mouseX - x - handleW / 2.0) / (width - handleW), 0.0, 1.0);
-            int newVal = (int)Math.round(minVal + sliderPos * (maxVal - minVal));
+            int newVal = (int) Math.round(minVal + sliderPos * (maxVal - minVal));
             newVal = MathHelper.clamp(newVal, minVal, maxVal);
             if (newVal != currentVal) {
                 currentVal = newVal;
                 onChange.accept(currentVal);
             }
-            sliderPos = (maxVal > minVal) ? (double)(currentVal - minVal) / (maxVal - minVal) : 0;
+            sliderPos = maxVal > minVal ? (double) (currentVal - minVal) / (maxVal - minVal) : 0;
         }
     }
 

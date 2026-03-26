@@ -6,19 +6,14 @@ import com.babelmoth.rotp_ata.AddonMain;
 import com.babelmoth.rotp_ata.init.InitStands;
 import com.github.standobyte.jojo.client.ui.actionshud.ActionsOverlayGui;
 import com.github.standobyte.jojo.client.ui.marker.MarkerRenderer;
-import com.github.standobyte.jojo.entity.stand.StandEntity;
-import com.github.standobyte.jojo.power.impl.stand.IStandPower;
-import com.github.standobyte.jojo.power.impl.stand.IStandManifestation;
-
+import com.github.standobyte.jojo.util.mod.JojoModUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.item.ItemEntity;
-import net.minecraft.entity.projectile.ProjectileHelper;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.EntityRayTraceResult;
-import net.minecraft.util.math.vector.Vector3d;
+import net.minecraft.util.math.RayTraceResult;
 
 public class MothSwarmAttackMarker extends MarkerRenderer {
     private static final double RANGE = 64.0D;
@@ -48,67 +43,27 @@ public class MothSwarmAttackMarker extends MarkerRenderer {
     }
 
     private Entity getLookedAtEntity(LivingEntity player, float partialTick) {
-        Vector3d eyePos;
-        Vector3d lookVec;
         Entity viewEntity = player;
 
-        java.util.Optional<IStandPower> powerOpt = IStandPower.getStandPowerOptional(player).resolve();
-        if (powerOpt.isPresent()) {
-            IStandPower power = powerOpt.get();
-            IStandManifestation stand = power.getStandManifestation();
-            if (stand instanceof StandEntity) {
-                StandEntity standEntity = (StandEntity) stand;
-                if (standEntity.isManuallyControlled()) {
-
-                    viewEntity = standEntity;
-                    eyePos = standEntity.getEyePosition(partialTick);
-                    lookVec = standEntity.getViewVector(partialTick);
-                } else {
-                    eyePos = player.getEyePosition(partialTick);
-                    lookVec = player.getViewVector(partialTick);
-                }
-            } else {
-                eyePos = player.getEyePosition(partialTick);
-                lookVec = player.getViewVector(partialTick);
-            }
-        } else {
-            eyePos = player.getEyePosition(partialTick);
-            lookVec = player.getViewVector(partialTick);
-        }
-
-        Vector3d maxVec = eyePos.add(lookVec.x * RANGE, lookVec.y * RANGE, lookVec.z * RANGE);
-        AxisAlignedBB aabb = viewEntity.getBoundingBox().expandTowards(lookVec.scale(RANGE)).inflate(1.0D, 1.0D, 1.0D);
-
-        final Entity finalViewEntity = viewEntity;
-        final LivingEntity finalPlayer = player;
-        EntityRayTraceResult result = ProjectileHelper.getEntityHitResult(
-            viewEntity,
-            eyePos,
-            maxVec,
-            aabb,
+        RayTraceResult rtResult = JojoModUtil.rayTrace(viewEntity, RANGE,
             entity -> {
-
-                if (entity.isSpectator() || entity == finalPlayer || entity == finalViewEntity || entity instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
+                if (entity.isSpectator() || entity == player || entity == viewEntity || entity instanceof com.babelmoth.rotp_ata.entity.FossilMothEntity) {
                     return false;
                 }
-
                 if (entity instanceof LivingEntity) {
                     return entity.isPickable() && ((LivingEntity) entity).isAlive();
                 }
                 if (entity instanceof ItemEntity) {
                     ItemEntity itemEntity = (ItemEntity) entity;
-
                     return !itemEntity.removed
                         && !itemEntity.getItem().isEmpty()
                         && !itemEntity.getPersistentData().getBoolean("ata_retrieved");
                 }
                 return false;
-            },
-            RANGE * RANGE
-        );
+            });
 
-        if (result != null) {
-            return result.getEntity();
+        if (rtResult instanceof EntityRayTraceResult) {
+            return ((EntityRayTraceResult) rtResult).getEntity();
         }
         return null;
     }

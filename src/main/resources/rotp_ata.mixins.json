@@ -12,7 +12,9 @@
         "PlayerEntityMixin",
         "PressurePlateBlockMixin",
         "TrapDoorBlockMixin",
-        "WorldMixin"
+        "WorldMixin",
+        "TimeStopHandlerMixin",
+        "StandBlockPunchMixin"
     ],
     "client": [
     ],

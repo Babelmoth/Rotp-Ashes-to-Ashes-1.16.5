@@ -30,6 +30,7 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
     private static final float STAMINA_COST = 200.0F;
     private static final int MAX_BURST_SPEARS = 30;
     private static final double SEARCH_RADIUS = 30.0;
+    private static final double PENDING_SPEAR_SEARCH_RADIUS = 128.0;
     private static final double MAX_RANGE = 30.0;
 
     public ThelaHunGinjeetThornBurst(AbstractBuilder<?> builder) {
@@ -48,7 +49,8 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
         }
 
         List<LivingEntity> targets = findBurstTargets(user);
-        if (targets.isEmpty()) {
+        List<ThelaHunGinjeetSpearEntity> pendingLivingBlockSpears = findPendingLivingBlockSpears(user);
+        if (targets.isEmpty() && pendingLivingBlockSpears.isEmpty()) {
             return ActionConditionResult.NEGATIVE;
         }
         return ActionConditionResult.POSITIVE;
@@ -61,7 +63,8 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
         PlayerEntity player = (PlayerEntity) user;
 
         List<LivingEntity> targets = findBurstTargets(user);
-        if (targets.isEmpty()) return;
+        List<ThelaHunGinjeetSpearEntity> pendingLivingBlockSpears = findPendingLivingBlockSpears(user);
+        if (targets.isEmpty() && pendingLivingBlockSpears.isEmpty()) return;
 
         power.consumeStamina(STAMINA_COST);
         Random rand = new Random();
@@ -143,6 +146,12 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
             }
         }
 
+        for (ThelaHunGinjeetSpearEntity spear : pendingLivingBlockSpears) {
+            if (spear.isAlive() && player.equals(spear.getOwner())) {
+                spear.triggerLivingBlockExplosion();
+            }
+        }
+
         user.swing(Hand.MAIN_HAND, true);
         user.playSound(SoundEvents.GENERIC_EXPLODE, 1.0F, 1.2F);
         user.playSound(SoundEvents.TRIDENT_HIT, 1.5F, 0.8F);
@@ -162,6 +171,12 @@ public class ThelaHunGinjeetThornBurst extends StandAction {
             }
         }
         return result;
+    }
+
+    public static List<ThelaHunGinjeetSpearEntity> findPendingLivingBlockSpears(LivingEntity user) {
+        AxisAlignedBB searchBox = user.getBoundingBox().inflate(PENDING_SPEAR_SEARCH_RADIUS);
+        return user.level.getEntitiesOfClass(ThelaHunGinjeetSpearEntity.class, searchBox,
+                spear -> spear.isAlive() && !spear.isBurstMode() && spear.isOwnedBy(user) && spear.hasPendingLivingBlockExplosion());
     }
 
     private static float getScaledDamage(IStandPower power) {
