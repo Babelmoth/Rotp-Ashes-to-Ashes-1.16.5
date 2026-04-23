@@ -73,7 +73,7 @@
   "death.attack.stand.spear": "%1$s被替身长矛击杀",
   "death.attack.stand.spear.player": "%1$s被%2$s使用替身击杀",
   "death.attack.stand.spear_thrust": "%1$s被贯穿了",
-  "death.attack.stand.spear_thrust.player": "%1$s被%2$s的贯穿了",
+  "death.attack.stand.spear_thrust.player": "%1$s被%2$s贯穿了",
   "death.attack.stand.spear_riptide": "%1$s被激流突刺贯穿了",
   "death.attack.stand.spear_riptide.player": "%1$s被%2$s的激流突刺贯穿了",
   "death.attack.stand.spear_sweep": "%1$s被替身长矛击杀",
