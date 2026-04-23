@@ -1,0 +1,11 @@
+v0.1.2
+ ·Added Dharma Chakara as a obtainable(WIP) Stand.
+ ·Improved Thorn Burst. Now you can use it when spear hit a life block.
+ ·Fixed Moth Swarm and Swarm Gurdian crash the server.
+ ·Now Ashes to Ashes moths can slow down nearby entites and projectile and explotion. Weaken them like entity adhesion.
+ ·Kinetic Detonation and Exfoliating Detonation now depends on the number of moths in a swarm within a certain range. And more blance.
+ ·Now Swarm Shield cost stamina and slow down the user.
+ ·Added two new ability allow Ashes to Ashes user charge their moth.
+ ·Now Kinetic Detonation's damage won't be absorbed by other mothes.
+ ·Now Moth Jet can also make moth adhesion on block they come into contact with.
+ ·Weaked Ashes to Ashes's stand jump.
